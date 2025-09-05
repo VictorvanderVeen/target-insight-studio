@@ -91,33 +91,51 @@ export class ClaudeAnalysisService {
     }
 
     try {
-      console.log(`Starting ${demoMode ? 'DEMO' : 'PRODUCTION'} Claude analysis`);
+      console.log(`=== FRONTEND: Starting ${demoMode ? 'DEMO' : 'PRODUCTION'} Claude analysis ===`);
+      console.log('Request payload:', {
+        personasCount: demoMode ? personas.length : personas.slice(progress.currentPersona).length,
+        questionsCount: questions.length,
+        websiteUrl,
+        demoMode,
+        batchSize: this.BATCH_SIZE
+      });
       
+      const requestBody = {
+        personas: demoMode ? personas : personas.slice(progress.currentPersona),
+        questions,
+        websiteUrl,
+        demoMode,
+        batchSize: this.BATCH_SIZE
+      };
+      
+      console.log('=== FRONTEND: Calling supabase.functions.invoke ===');
       const response = await supabase.functions.invoke('claude-persona-analysis', {
-        body: {
-          personas: demoMode ? personas : personas.slice(progress.currentPersona),
-          questions,
-          websiteUrl,
-          demoMode,
-          batchSize: this.BATCH_SIZE
-        }
+        body: requestBody
       });
 
-      console.log('Edge function response:', response);
+      console.log('=== FRONTEND: Raw response received ===');
+      console.log('Response object:', response);
+      console.log('Response.data:', response.data);
+      console.log('Response.error:', response.error);
 
       if (response.error) {
-        console.error('Supabase function error:', response.error);
+        console.error('=== FRONTEND: Supabase function error ===');
+        console.error('Error object:', response.error);
+        console.error('Error message:', response.error.message);
+        console.error('Error name:', response.error.name);
         
         // Check if it's a fallback scenario
         if (response.error.message?.includes('ANTHROPIC_API_KEY') || 
             response.data?.fallback || 
             response.data?.error?.includes('ANTHROPIC_API_KEY')) {
           
-          console.log('API key not available, offering demo mode');
-          const useDemoMode = confirm('Claude API sleutel is niet beschikbaar. Wil je demo mode gebruiken met mock data?');
-          
-          if (useDemoMode) {
-            return this.startAnalysis(personas, websiteUrl, onProgress, onError, true);
+          console.log('=== FRONTEND: API key not available, offering demo mode ===');
+          if (!demoMode) {
+            const useDemoMode = confirm('Claude API sleutel is niet beschikbaar. Wil je demo mode gebruiken met mock data?');
+            
+            if (useDemoMode) {
+              return this.startAnalysis(personas, websiteUrl, onProgress, onError, true);
+            }
           }
         }
         
@@ -126,16 +144,24 @@ export class ClaudeAnalysisService {
 
       const { data } = response;
       
+      console.log('=== FRONTEND: Processing response data ===');
+      console.log('Data object:', data);
+      
       if (!data) {
+        console.error('=== FRONTEND: No data returned ===');
         throw new Error('No data returned from edge function');
       }
       
       if (!data.success) {
-        console.error('Edge function returned error:', data.error);
+        console.error('=== FRONTEND: Edge function returned error ===');
+        console.error('Data.success:', data.success);
+        console.error('Data.error:', data.error);
+        console.error('Data.fallback:', data.fallback);
+        console.error('Data.code:', data.code);
         
         // Check for fallback scenario in data
-        if (data.fallback && data.error?.includes('ANTHROPIC_API_KEY')) {
-          console.log('API key not configured, offering demo mode');
+        if (data.fallback && data.error?.includes('ANTHROPIC_API_KEY') && !demoMode) {
+          console.log('=== FRONTEND: API key not configured, offering demo mode ===');
           const useDemoMode = confirm('Claude API sleutel is niet geconfigureerd. Wil je demo mode gebruiken met mock data?');
           
           if (useDemoMode) {
@@ -146,7 +172,9 @@ export class ClaudeAnalysisService {
         throw new Error(data.error || 'Unknown API error');
       }
 
-      console.log('Successfully processed results:', data);
+      console.log('=== FRONTEND: Successfully processed results ===');
+      console.log('Results count:', data.results?.length || 0);
+      console.log('Demo mode:', data.demoMode);
 
       // Combine with previous results if resuming (not applicable in demo mode)
       const allResults = demoMode ? data.results : [...progress.completed, ...data.results];
@@ -166,10 +194,15 @@ export class ClaudeAnalysisService {
         this.clearProgress();
       }
       
+      console.log('=== FRONTEND: Analysis completed successfully ===');
       return allResults;
 
     } catch (error) {
-      console.error('Analysis failed:', error);
+      console.error('=== FRONTEND: Analysis failed ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Suggest demo mode if API fails
@@ -178,7 +211,7 @@ export class ClaudeAnalysisService {
         errorMessage.includes('API Error') ||
         errorMessage.includes('Edge Function returned a non-2xx status code')
       )) {
-        console.log('API error detected, offering demo mode');
+        console.log('=== FRONTEND: API error detected, offering demo mode ===');
         const useDemoMode = confirm(`Analyse mislukt: ${errorMessage}\n\nWil je demo mode proberen met mock data?`);
         
         if (useDemoMode) {
