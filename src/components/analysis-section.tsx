@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Play, Clock, Users, Brain, Zap, Globe, Image, AlertTriangle, TestTube, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { Play, Clock, Users, Brain, Zap, Globe, Image, AlertTriangle, TestTube, CheckCircle2, X, Download, Copy } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ClaudeAnalysisService, AnalysisProgress, AnalysisResult } from "@/utils/claudeAnalysis";
 
 interface AnalysisSectionProps {
   selectedPersonas: any[];
@@ -16,6 +17,7 @@ interface AnalysisSectionProps {
   testMode: boolean;
   onStartAnalysis: () => void;
   onStartTestAnalysis: () => void;
+  onClaudeAnalysisComplete: (results: AnalysisResult[]) => void;
   canStartAnalysis: boolean;
 }
 
@@ -29,9 +31,110 @@ export function AnalysisSection({
   testMode,
   onStartAnalysis,
   onStartTestAnalysis,
+  onClaudeAnalysisComplete,
   canStartAnalysis
 }: AnalysisSectionProps) {
   const [currentPersona, setCurrentPersona] = useState("");
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const [claudeResults, setClaudeResults] = useState<AnalysisResult[]>([]);
+  const [analysisError, setAnalysisError] = useState<string>("");
+  const [isClaudeAnalyzing, setIsClaudeAnalyzing] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  useEffect(() => {
+    // Check for saved progress on component mount
+    const savedProgress = ClaudeAnalysisService.loadProgress();
+    if (savedProgress && savedProgress.completed.length > 0) {
+      setAnalysisProgress(savedProgress);
+      setClaudeResults(savedProgress.completed);
+    }
+  }, []);
+
+  const hasApiKey = ClaudeAnalysisService.hasApiKey();
+
+  const startClaudeAnalysis = async () => {
+    if (!hasApiKey) {
+      setAnalysisError("Geen API key geconfigureerd. Ga naar instellingen om je Anthropic API key in te voeren.");
+      return;
+    }
+
+    setIsClaudeAnalyzing(true);
+    setAnalysisError("");
+    setShowResults(false);
+    
+    try {
+      const url = websiteUrl || `Screenshot: ${screenshot?.name}`;
+      
+      const results = await ClaudeAnalysisService.startAnalysis(
+        selectedPersonas,
+        url,
+        (progress) => {
+          setAnalysisProgress(progress);
+          setCurrentPersona(
+            progress.currentPersona < selectedPersonas.length 
+              ? selectedPersonas[progress.currentPersona]?.naam || ""
+              : ""
+          );
+        },
+        (error) => {
+          setAnalysisError(error);
+        }
+      );
+      
+      setClaudeResults(results);
+      onClaudeAnalysisComplete(results);
+      setShowResults(true);
+      
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Onbekende fout tijdens analyse');
+    } finally {
+      setIsClaudeAnalyzing(false);
+      setCurrentPersona("");
+    }
+  };
+
+  const stopAnalysis = () => {
+    setIsClaudeAnalyzing(false);
+    // Save current progress
+    if (analysisProgress) {
+      ClaudeAnalysisService.saveProgress(analysisProgress);
+    }
+  };
+
+  const resumeAnalysis = () => {
+    if (analysisProgress && analysisProgress.completed.length < selectedPersonas.length) {
+      startClaudeAnalysis();
+    }
+  };
+
+  const exportResults = (format: 'json' | 'markdown') => {
+    if (claudeResults.length === 0) return;
+    
+    const data = ClaudeAnalysisService.exportResults(claudeResults, format);
+    const blob = new Blob([data], { type: format === 'json' ? 'application/json' : 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `persona-analyse-${new Date().toISOString().split('T')[0]}.${format === 'json' ? 'json' : 'md'}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyToClipboard = async () => {
+    if (claudeResults.length === 0) return;
+    
+    const markdown = ClaudeAnalysisService.exportResults(claudeResults, 'markdown');
+    await navigator.clipboard.writeText(markdown);
+  };
+
+  const getEstimatedCost = () => {
+    const tokensPerPersona = 200 * 15; // ~200 tokens per question, 15 questions
+    const totalTokens = selectedPersonas.length * tokensPerPersona;
+    const cost = (totalTokens / 1000) * 0.003; // Claude 3.5 Sonnet pricing
+    return { tokens: totalTokens, cost };
+  };
+
+  const estimatedCost = getEstimatedCost();
 
   const startAnalysis = () => {
     if (testMode) {
@@ -119,6 +222,34 @@ export function AnalysisSection({
             </AlertDescription>
           </Alert>
         )}
+
+        {!hasApiKey && canStartAnalysis && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Configureer eerst je Anthropic API key in de instellingen om Claude analyse te gebruiken.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {analysisError && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {analysisError}
+              {analysisProgress && analysisProgress.completed.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={resumeAnalysis}
+                  className="ml-2"
+                >
+                  Hervat analyse
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
@@ -128,46 +259,41 @@ export function AnalysisSection({
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
             <Brain className="w-6 h-6 text-accent mx-auto mb-2" />
-            <div className="text-2xl font-bold text-foreground">12</div>
+            <div className="text-2xl font-bold text-foreground">15</div>
             <p className="text-xs text-muted-foreground">Vragen</p>
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
             <Clock className="w-6 h-6 text-secondary mx-auto mb-2" />
-            <div className="text-2xl font-bold text-foreground">~{Math.ceil(selectedPersonas.length * 0.5)}m</div>
+            <div className="text-2xl font-bold text-foreground">
+              ~{Math.ceil(selectedPersonas.length * 0.5)}m
+            </div>
             <p className="text-xs text-muted-foreground">Geschatte tijd</p>
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
             <Zap className="w-6 h-6 text-warning mx-auto mb-2" />
-            <div className="text-2xl font-bold text-foreground">{testMode ? 'TEST' : 'API'}</div>
-            <p className="text-xs text-muted-foreground">{testMode ? 'Mock data' : 'Claude 3.5'}</p>
+            <div className="text-2xl font-bold text-foreground">
+              ${estimatedCost.cost.toFixed(3)}
+            </div>
+            <p className="text-xs text-muted-foreground">Geschatte kosten</p>
           </div>
         </div>
         
         {getPreviewContent()}
 
-        {!isAnalyzing && progress === 0 && (
+        {!isAnalyzing && !isClaudeAnalyzing && progress === 0 && (
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button 
-                onClick={startAnalysis}
-                disabled={isAnalyzing || !canStartAnalysis}
+                onClick={startClaudeAnalysis}
+                disabled={!canStartAnalysis || !hasApiKey}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-spring h-12 text-base font-semibold"
               >
-                {isAnalyzing ? (
-                  <>
-                    <Clock className="w-5 h-5 mr-2 animate-spin" />
-                    Analyseren... ({Math.round(progress)}%)
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5 mr-2" />
-                    Start Analyse
-                  </>
-                )}
+                <Brain className="w-5 h-5 mr-2" />
+                Start Claude Analyse
               </Button>
               <Button 
                 onClick={onStartTestAnalysis}
-                disabled={isAnalyzing || selectedPersonas.length === 0}
+                disabled={selectedPersonas.length === 0}
                 variant="outline"
                 className="px-6 h-12 border-2"
               >
@@ -177,23 +303,29 @@ export function AnalysisSection({
             </div>
             
             <p className="text-sm text-muted-foreground text-center">
-              Test Mode gebruikt mock data voor snelle UI tests. Echte analyse gebruikt Claude AI.
+              Claude analyse gebruikt echte AI voor authentieke persona responses. Test Mode gebruikt mock data.
             </p>
           </div>
         )}
 
-        {isAnalyzing && (
+        {(isAnalyzing || isClaudeAnalyzing) && (
           <div className="space-y-4">
             <div className="text-center">
               <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse shadow-glow">
                 <Brain className="w-8 h-8 text-primary-foreground" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">
-                Analyse wordt uitgevoerd...
+                {isClaudeAnalyzing ? 'Claude AI Analyse...' : 'Mock Analyse...'}
               </h3>
               {currentPersona && (
                 <p className="text-muted-foreground">
                   Analyseren: {currentPersona}
+                </p>
+              )}
+              {analysisProgress && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Batch {analysisProgress.currentBatch} van {analysisProgress.totalBatches} 
+                  • {analysisProgress.completed.length} van {analysisProgress.totalPersonas} voltooid
                 </p>
               )}
             </div>
@@ -201,35 +333,63 @@ export function AnalysisSection({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-foreground">Voortgang</span>
-                <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                <span className="text-muted-foreground">
+                  {analysisProgress ? 
+                    Math.round((analysisProgress.completed.length / analysisProgress.totalPersonas) * 100) :
+                    Math.round(progress)
+                  }%
+                </span>
               </div>
-              <Progress value={progress} className="h-3" />
+              <Progress 
+                value={analysisProgress ? 
+                  (analysisProgress.completed.length / analysisProgress.totalPersonas) * 100 :
+                  progress
+                } 
+                className="h-3" 
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center text-sm">
               <div className="p-3 bg-success/10 rounded-lg">
                 <div className="font-medium text-success">Voltooid</div>
                 <div className="text-xs text-muted-foreground">
-                  {Math.floor((progress / 100) * selectedPersonas.length)} personas
+                  {analysisProgress?.completed.length || 0} personas
                 </div>
               </div>
               <div className="p-3 bg-primary/10 rounded-lg">
                 <div className="font-medium text-primary">Bezig</div>
                 <div className="text-xs text-muted-foreground">
-                  {testMode ? 'Mock analyse' : 'Claude AI'}
+                  {isClaudeAnalyzing ? 'Claude AI' : 'Mock analyse'}
                 </div>
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
                 <div className="font-medium text-muted-foreground">Wachtend</div>
                 <div className="text-xs text-muted-foreground">
-                  {selectedPersonas.length - Math.floor((progress / 100) * selectedPersonas.length)} personas
+                  {analysisProgress ? 
+                    analysisProgress.totalPersonas - analysisProgress.completed.length :
+                    selectedPersonas.length - Math.floor((progress / 100) * selectedPersonas.length)
+                  } personas
                 </div>
               </div>
             </div>
+
+            {isClaudeAnalyzing && (
+              <div className="flex justify-center">
+                <Button 
+                  onClick={stopAnalysis}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Stop Analyse
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
-        {progress === 100 && !isAnalyzing && (
+        {((progress === 100 && !isAnalyzing) || showResults) && (
           <div className="text-center space-y-4">
             <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8 text-success" />
@@ -239,13 +399,52 @@ export function AnalysisSection({
                 Analyse Voltooid!
               </h3>
               <p className="text-muted-foreground">
-                Alle {selectedPersonas.length} personas zijn geanalyseerd. 
+                {claudeResults.length > 0 ? 
+                  `Claude heeft ${claudeResults.length} responses gegenereerd.` :
+                  `Alle ${selectedPersonas.length} personas zijn geanalyseerd.`
+                }
                 Bekijk de resultaten hieronder.
               </p>
             </div>
-            <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-              {testMode ? 'Test analyse' : 'API analyse'} voltooid
-            </Badge>
+            
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                {claudeResults.length > 0 ? 'Claude analyse' : testMode ? 'Test analyse' : 'API analyse'} voltooid
+              </Badge>
+              
+              {claudeResults.length > 0 && (
+                <>
+                  <Button 
+                    onClick={() => exportResults('json')}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    JSON
+                  </Button>
+                  <Button 
+                    onClick={() => exportResults('markdown')}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    Markdown
+                  </Button>
+                  <Button 
+                    onClick={copyToClipboard}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Kopieer
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </CardContent>

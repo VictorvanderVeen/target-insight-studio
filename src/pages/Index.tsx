@@ -2,8 +2,10 @@ import { UploadSection } from "@/components/upload-section";
 import { TargetGroupSection } from "@/components/target-group-section";
 import { AnalysisSection } from "@/components/analysis-section";
 import { ResultsDashboard } from "@/components/results-dashboard";
+import { SettingsPanel } from "@/components/settings-panel";
 import { usePersonaAnalysis } from "@/hooks/usePersonaAnalysis";
 import { generateMockAnalysis } from "@/utils/mockAnalysis";
+import { ClaudeAnalysisService, AnalysisResult } from "@/utils/claudeAnalysis";
 import { useToast } from "@/components/ui/use-toast";
 import { Brain } from "lucide-react";
 import { useState } from "react";
@@ -12,6 +14,8 @@ const Index = () => {
   const { state, actions } = usePersonaAnalysis();
   const { toast } = useToast();
   const [showResults, setShowResults] = useState(false);
+  const [claudeResults, setClaudeResults] = useState<AnalysisResult[]>([]);
+  const [hasApiKey, setHasApiKey] = useState(ClaudeAnalysisService.hasApiKey());
 
   const handleExcelProcessed = (data: { doelgroepen: any; availableSheets: string[] }) => {
     actions.setDoelgroepen(data.doelgroepen);
@@ -80,6 +84,34 @@ const Index = () => {
     }
   };
 
+  const handleClaudeAnalysisComplete = (results: AnalysisResult[]) => {
+    setClaudeResults(results);
+    
+    // Process results for the dashboard
+    const processed = ClaudeAnalysisService.processResults(results);
+    
+    // Convert to the format expected by ResultsDashboard
+    const dashboardResults = {
+      results: results.map(r => ({
+        persona: { naam: 'Claude Persona' }, // We'll need to map this properly
+        responses: { [r.vraagId]: r.score || r.uitleg || r.woorden?.join(', ') || '' },
+        timestamp: new Date().toISOString(),
+        websiteUrl: state.websiteUrl
+      })),
+      summary: processed.summary,
+      totalResponses: results.length,
+      completedAt: new Date().toISOString()
+    };
+    
+    actions.setResults(dashboardResults);
+    setShowResults(true);
+    
+    toast({
+      title: "Claude analyse voltooid",
+      description: `${results.length} authentieke persona responses gegenereerd`,
+    });
+  };
+
   const canStartAnalysis = state.selectedPersonas.length > 0 && 
     (state.websiteUrl || state.screenshot);
 
@@ -100,6 +132,7 @@ const Index = () => {
                 AI-gedreven gebruikersonderzoek & feedback analyse
               </p>
             </div>
+            <SettingsPanel onApiKeyChange={setHasApiKey} />
           </div>
         </div>
       </header>
@@ -141,6 +174,7 @@ const Index = () => {
               testMode={state.testMode}
               onStartAnalysis={handleStartAnalysis}
               onStartTestAnalysis={handleStartTestAnalysis}
+              onClaudeAnalysisComplete={handleClaudeAnalysisComplete}
               canStartAnalysis={canStartAnalysis}
             />
           )}
