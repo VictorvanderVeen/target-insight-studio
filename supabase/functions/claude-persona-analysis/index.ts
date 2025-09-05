@@ -32,7 +32,12 @@ serve(async (req) => {
   }
 
   try {
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    // Try multiple ways to get the API key
+    let anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || 
+                         Deno.env.get('SUPABASE_SECRET_ANTHROPIC_API_KEY') ||
+                         Deno.env.get('SECRET_ANTHROPIC_API_KEY');
+    
+    console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('ANTHROPIC')));
     console.log('API Key status:', anthropicApiKey ? 'Present' : 'Missing');
     
     if (!anthropicApiKey) {
