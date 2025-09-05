@@ -1,109 +1,167 @@
-// Vragenlijst data gebaseerd op de PDF
+// Professionele vragenlijst gebaseerd op CRO beste praktijken
 export const questions = {
+  // A. Advertentie analyse (7 vragen)
   advertentieVragen: [
     {
       id: "adv_1",
-      tekst: "Hoe duidelijk is de boodschap van deze advertentie?",
-      type: "score",
-      maxScore: 10
+      tekst: "Eerste indruk: Beschrijf in precies 3 woorden wat je eerste indruk is",
+      type: "text",
+      expectedWords: 3
     },
     {
-      id: "adv_2", 
-      tekst: "Spreekt het design je aan?",
-      type: "score",
-      maxScore: 10
-    },
-    {
-      id: "adv_3",
-      tekst: "Zou je op deze advertentie klikken?",
-      type: "score", 
-      maxScore: 10
-    },
-    {
-      id: "adv_4",
-      tekst: "Wat is je eerste indruk in één woord?",
+      id: "adv_2",
+      tekst: "Wat is dit en voor wie? Leg in eigen woorden uit wat dit is en voor welke doelgroep",
       type: "text"
     },
     {
+      id: "adv_3",
+      tekst: "Relevantie voor jou op schaal 1-7. Waarom dit cijfer? Welke doelgroep raakt dit vooral?",
+      type: "score",
+      maxScore: 7
+    },
+    {
+      id: "adv_4", 
+      tekst: "Kernbelofte & bewijs: Wat wordt er beloofd? Geef geloofwaardigheid een cijfer 1-7. Wat mist er als bewijs?",
+      type: "score",
+      maxScore: 7
+    },
+    {
       id: "adv_5",
-      tekst: "Welke doelgroep denk je dat wordt aangesproken?",
-      type: "multiple",
-      options: ["Jonge professionals", "Families", "Senioren", "Studenten", "Ondernemers"]
+      tekst: "Emotie & nieuwsgierigheid: Wat voel je hierbij? Welke emotie roept dit op?",
+      type: "text"
+    },
+    {
+      id: "adv_6",
+      tekst: "Klikintentie: Geef een cijfer 1-7. Wat zou +2 punten geven om te klikken?",
+      type: "score", 
+      maxScore: 7
+    },
+    {
+      id: "adv_7",
+      tekst: "CTA-verwachting: Wat denk je dat er gebeurt na de klik? Geef CTA specificiteit een cijfer 1-7. Suggestie voor betere CTA-tekst?",
+      type: "score",
+      maxScore: 7
     }
   ],
   
+  // B. Landingspagina analyse (8 vragen)
   landingspaginaVragen: [
     {
       id: "lp_1",
-      tekst: "Hoe gemakkelijk is de navigatie op deze pagina?",
-      type: "score",
-      maxScore: 10
+      tekst: "5-seconden test: Wat is dit? Voor wie? Wat kan ik hier doen? (Eerste indruk zonder lang kijken)",
+      type: "text"
     },
     {
       id: "lp_2",
-      tekst: "Hoe aantrekkelijk vind je het ontwerp?", 
+      tekst: "Aansluiting met advertentie ('scent'): Cijfer 1-7. Wat matcht wel/niet met de advertentie?",
       type: "score",
-      maxScore: 10
+      maxScore: 7
     },
     {
       id: "lp_3",
-      tekst: "Hoe relevant vind je de content?",
-      type: "score",
-      maxScore: 10
+      tekst: "Waardepropositie hoofdboodschap: Cijfer 1-7. Hoe duidelijk is de kernboodschap? (1-7)",
+      type: "score", 
+      maxScore: 7
     },
     {
       id: "lp_4",
-      tekst: "Hoe snel laadt de pagina volgens jou?",
-      type: "score",
-      maxScore: 10
+      tekst: "Wat mis je om te beslissen? (denk aan impact, kosten, tijd, privacy, bewijs)",
+      type: "text"
     },
     {
       id: "lp_5",
-      tekst: "Hoe goed werkt de pagina op mobiel?",
-      type: "score", 
-      maxScore: 10
+      tekst: "Vertrouwen: Wat geeft vertrouwen? Wat voelt 'te marketing'? Geef vertrouwen een cijfer 1-7",
+      type: "score",
+      maxScore: 7
     },
     {
       id: "lp_6",
-      tekst: "Zou je een actie ondernemen op deze pagina?",
+      tekst: "Formulier & frictie: Storende velden/twijfels? Inspanning cijfer 1-7. Wat kan weg of korter?",
       type: "score",
-      maxScore: 10
+      maxScore: 7
     },
     {
-      id: "lp_7",
-      tekst: "Wat zou je verbeteren aan deze pagina?",
+      id: "lp_7", 
+      tekst: "CTA op pagina: Begrijp je wat er gebeurt? Is hij zichtbaar? Sterkte CTA cijfer 1-7",
+      type: "score",
+      maxScore: 7
+    },
+    {
+      id: "lp_8",
+      tekst: "Mobiel: Leesbaarheid & aanklikbaarheid - wat belemmert je op mobiel?",
       type: "text"
     }
   ],
 
-  algemeneVragen: [
+  // C. Van advertentie → pagina (3 vragen)
+  advertentiePaginaVragen: [
     {
-      id: "alg_1",
-      tekst: "Hoe waarschijnlijk is het dat je dit product/deze dienst zou gebruiken?",
+      id: "ap_1", 
+      tekst: "Lost de pagina de belofte in? Cijfer 1-7. Wat is het grootste gemis?",
       type: "score",
-      maxScore: 10
+      maxScore: 7
     },
     {
-      id: "alg_2", 
-      tekst: "Hoe zou je dit aanbevelen aan vrienden/familie?",
-      type: "score",
-      maxScore: 10
-    },
-    {
-      id: "alg_3",
-      tekst: "Wat zijn de belangrijkste voordelen die je ziet?",
+      id: "ap_2",
+      tekst: "Verwachting vs realiteit: Wat had je willen zien of kunnen doen?",
       type: "text"
     },
     {
-      id: "alg_4",
-      tekst: "Wat zijn je grootste zorgen of twijfels?", 
+      id: "ap_3",
+      tekst: "Eén wijziging met de grootste impact op conversie - wat zou dat zijn?",
       type: "text"
+    }
+  ],
+
+  // Mini-scorekaart criteria (8 scores)
+  scorekaartvragen: [
+    {
+      id: "score_1",
+      tekst: "Duidelijkheid boodschap (advertentie/pagina)",
+      type: "score",
+      maxScore: 7
     },
     {
-      id: "alg_5",
-      tekst: "Hoe vergelijkt dit met alternatieven die je kent?",
-      type: "multiple",
-      options: ["Veel beter", "Iets beter", "Gelijk", "Iets slechter", "Veel slechter", "Geen ervaring met alternatieven"]
+      id: "score_2", 
+      tekst: "Relevantie voor beoogde doelgroep",
+      type: "score",
+      maxScore: 7
+    },
+    {
+      id: "score_3",
+      tekst: "Geloofwaardigheid / bewijs",
+      type: "score", 
+      maxScore: 7
+    },
+    {
+      id: "score_4",
+      tekst: "Motivatie / klikintentie",
+      type: "score",
+      maxScore: 7
+    },
+    {
+      id: "score_5",
+      tekst: "Frictie (1=veel frictie, 7=geen frictie)",
+      type: "score",
+      maxScore: 7
+    },
+    {
+      id: "score_6",
+      tekst: "Vertrouwen",
+      type: "score", 
+      maxScore: 7
+    },
+    {
+      id: "score_7",
+      tekst: "Scent advertentie → pagina (aansluiting)",
+      type: "score",
+      maxScore: 7
+    },
+    {
+      id: "score_8",
+      tekst: "Likelihood to act nu (waarschijnlijkheid om actie te ondernemen)",
+      type: "score",
+      maxScore: 7
     }
   ]
 };
@@ -113,11 +171,17 @@ export const getAllQuestions = () => {
   return [
     ...questions.advertentieVragen,
     ...questions.landingspaginaVragen, 
-    ...questions.algemeneVragen
+    ...questions.advertentiePaginaVragen,
+    ...questions.scorekaartvragen
   ];
 };
 
 // Helper functie om vragen per categorie te krijgen
 export const getQuestionsByCategory = (category) => {
   return questions[category] || [];
+};
+
+// Helper functie om het totaal aantal vragen te krijgen
+export const getTotalQuestionCount = () => {
+  return getAllQuestions().length;
 };

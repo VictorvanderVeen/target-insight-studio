@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Play, Clock, Users, Brain, Zap, Globe, Image, AlertTriangle, TestTube, CheckCircle2, X, Download, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ClaudeAnalysisService, AnalysisProgress, AnalysisResult } from "@/utils/claudeAnalysis";
+import { getTotalQuestionCount } from "@/data/questions";
 
 interface AnalysisSectionProps {
   selectedPersonas: any[];
@@ -126,7 +127,8 @@ export function AnalysisSection({
   };
 
   const getEstimatedCost = () => {
-    const tokensPerPersona = 200 * 15; // ~200 tokens per question, 15 questions
+    const totalQuestions = getTotalQuestionCount();
+    const tokensPerPersona = 200 * totalQuestions; // ~200 tokens per question
     const totalTokens = selectedPersonas.length * tokensPerPersona;
     const cost = (totalTokens / 1000) * 0.003; // Claude 3.5 Sonnet pricing
     return { tokens: totalTokens, cost };
@@ -248,7 +250,7 @@ export function AnalysisSection({
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
             <Brain className="w-6 h-6 text-accent mx-auto mb-2" />
-            <div className="text-2xl font-bold text-foreground">15</div>
+            <div className="text-2xl font-bold text-foreground">{getTotalQuestionCount()}</div>
             <p className="text-xs text-muted-foreground">Vragen</p>
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
