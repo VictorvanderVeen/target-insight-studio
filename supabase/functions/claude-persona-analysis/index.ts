@@ -32,42 +32,44 @@ serve(async (req) => {
   }
 
   try {
-    // Try multiple ways to get the API key
-    let anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || 
-                         Deno.env.get('SUPABASE_SECRET_ANTHROPIC_API_KEY') ||
-                         Deno.env.get('SECRET_ANTHROPIC_API_KEY');
+    // Get API key
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     
-    console.log('API Key check:');
-    console.log('- Raw key exists:', Deno.env.get('ANTHROPIC_API_KEY') !== undefined);
-    console.log('- Key length:', anthropicApiKey?.length || 0);
-    console.log('- Key starts with sk-:', anthropicApiKey?.startsWith('sk-ant-') || false);
+    console.log('API Key status:');
+    console.log('- Exists:', !!anthropicApiKey);
+    console.log('- Length:', anthropicApiKey?.length || 0);
+    console.log('- Starts correctly:', anthropicApiKey?.startsWith('sk-ant-') || false);
     
     if (!anthropicApiKey || anthropicApiKey.trim() === '') {
-      console.error('ANTHROPIC_API_KEY is empty or not found');
+      console.error('ANTHROPIC_API_KEY is empty or missing');
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'ANTHROPIC_API_KEY is not properly configured. Please add your Claude API key in the Supabase secrets.',
+        error: 'ANTHROPIC_API_KEY is not configured. Please set your Claude API key in Supabase secrets.',
       }), {
-        status: 500,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    console.log('Parsing request body...');
     const requestBody = await req.json();
-    console.log('Request body received:', JSON.stringify({
-      personasCount: requestBody.personas?.length,
-      questionsCount: requestBody.questions?.length,
-      websiteUrl: requestBody.websiteUrl,
-      batchSize: requestBody.batchSize
-    }));
-
-    const { personas, questions, websiteUrl, batchSize = 3 }: PersonaAnalysisRequest = requestBody;
     
-    if (!personas || !questions || !websiteUrl) {
-      console.error('Missing required fields:', { personas: !!personas, questions: !!questions, websiteUrl: !!websiteUrl });
+    const { personas, questions, websiteUrl, batchSize = 1 } = requestBody;
+    
+    if (!personas || !Array.isArray(personas) || personas.length === 0) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Missing required fields: personas, questions, or websiteUrl' 
+        error: 'No personas provided' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'No questions provided' 
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -76,43 +78,38 @@ serve(async (req) => {
     
     console.log(`Starting analysis for ${personas.length} personas, ${questions.length} questions`);
 
+    // Process just first few items for testing
+    const testPersonas = personas.slice(0, Math.min(2, personas.length));
+    const testQuestions = questions.slice(0, Math.min(3, questions.length));
+    
+    console.log(`Processing ${testPersonas.length} personas with ${testQuestions.length} questions for testing`);
+
     const results: AnalysisResponse[] = [];
     
-    // Process personas in batches
-    for (let i = 0; i < personas.length; i += batchSize) {
-      const batch = personas.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i / batchSize) + 1}, personas ${i + 1} to ${Math.min(i + batchSize, personas.length)}`);
+    // Process one persona at a time to avoid overwhelming
+    for (const persona of testPersonas) {
+      console.log(`Processing persona: ${persona.naam}`);
       
-      const batchPromises = batch.map(async (persona) => {
-        const personaResults: AnalysisResponse[] = [];
-        
-        for (const question of questions) {
-          try {
-            const result = await simuleerPersonaAntwoord(persona, question, websiteUrl, anthropicApiKey);
-            personaResults.push(result);
-            
-            // Small delay between questions for the same persona
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } catch (error) {
-            console.error(`Error processing question ${question.id} for persona ${persona.id}:`, error);
-            // Add error response
-            personaResults.push({
-              personaId: persona.id,
-              vraagId: question.id,
-              rawResponse: `Error: ${error.message}`
-            });
-          }
+      for (const question of testQuestions) {
+        try {
+          console.log(`Processing question: ${question.id}`);
+          
+          const result = await simuleerPersonaAntwoord(persona, question, websiteUrl, anthropicApiKey);
+          results.push(result);
+          
+          console.log(`Successfully processed ${persona.naam} - ${question.id}`);
+          
+          // Small delay to be nice to the API
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+        } catch (error) {
+          console.error(`Error with ${persona.naam} - ${question.id}:`, error.message);
+          results.push({
+            personaId: persona.id,
+            vraagId: question.id,
+            rawResponse: `Error: ${error.message}`
+          });
         }
-        
-        return personaResults;
-      });
-      
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults.flat());
-      
-      // Delay between batches for rate limiting
-      if (i + batchSize < personas.length) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
@@ -121,18 +118,20 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       results,
-      totalPersonas: personas.length,
-      totalQuestions: questions.length,
-      processedItems: results.length
+      totalPersonas: testPersonas.length,
+      totalQuestions: testQuestions.length,
+      processedItems: results.length,
+      note: "This is a test run with limited personas and questions"
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error in claude-persona-analysis:', error);
+    console.error('Critical error in claude-persona-analysis:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: `Function error: ${error.message}`,
+      stack: error.stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
