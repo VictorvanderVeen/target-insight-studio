@@ -50,13 +50,7 @@ export function AnalysisSection({
     }
   }, []);
 
-  const hasApiKey = ClaudeAnalysisService.hasApiKey();
-
   const startClaudeAnalysis = async () => {
-    if (!hasApiKey) {
-      setAnalysisError("Geen API key geconfigureerd. Ga naar instellingen om je Anthropic API key in te voeren.");
-      return;
-    }
 
     setIsClaudeAnalyzing(true);
     setAnalysisError("");
@@ -223,15 +217,6 @@ export function AnalysisSection({
           </Alert>
         )}
 
-        {!hasApiKey && canStartAnalysis && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Configureer eerst je Anthropic API key in de instellingen om Claude analyse te gebruiken.
-            </AlertDescription>
-          </Alert>
-        )}
-
         {analysisError && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -285,7 +270,7 @@ export function AnalysisSection({
             <div className="flex gap-3">
               <Button 
                 onClick={startClaudeAnalysis}
-                disabled={!canStartAnalysis || !hasApiKey}
+                disabled={!canStartAnalysis}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-spring h-12 text-base font-semibold"
               >
                 <Brain className="w-5 h-5 mr-2" />

@@ -23,14 +23,6 @@ export class ClaudeAnalysisService {
   private static BATCH_SIZE = 3;
   private static STORAGE_KEY = 'persona_analysis_progress';
   
-  static hasApiKey(): boolean {
-    return !!localStorage.getItem('anthropic_api_key');
-  }
-
-  static getApiKey(): string | null {
-    return localStorage.getItem('anthropic_api_key');
-  }
-
   static saveProgress(progress: AnalysisProgress): void {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
       ...progress,
@@ -66,10 +58,6 @@ export class ClaudeAnalysisService {
     onError: (error: string) => void
   ): Promise<AnalysisResult[]> {
     
-    if (!this.hasApiKey()) {
-      throw new Error('Geen API key geconfigureerd. Ga naar instellingen om je Anthropic API key in te voeren.');
-    }
-
     const questions = getAllQuestions();
     const totalBatches = Math.ceil(personas.length / this.BATCH_SIZE);
     
@@ -146,28 +134,27 @@ export class ClaudeAnalysisService {
   }
 
   static async testApiConnection(): Promise<boolean> {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return false;
-
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 10,
-          messages: [{
-            role: 'user',
-            content: 'Test'
-          }]
-        })
+      // Test via our edge function instead of direct API call
+      const response = await supabase.functions.invoke('claude-persona-analysis', {
+        body: {
+          personas: [{
+            id: 'test',
+            naam: 'Test',
+            leeftijd: 30,
+            beroep: 'Test',
+            woonplaats: 'Test',
+            hobbies: 'Test',
+            motivatie: 'Test',
+            kanalen: 'Test'
+          }],
+          questions: [{ id: 'test', tekst: 'Test', type: 'text' }],
+          websiteUrl: 'test',
+          batchSize: 1
+        }
       });
 
-      return response.ok;
+      return !response.error;
     } catch {
       return false;
     }

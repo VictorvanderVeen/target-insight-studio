@@ -2,7 +2,6 @@ import { UploadSection } from "@/components/upload-section";
 import { TargetGroupSection } from "@/components/target-group-section";
 import { AnalysisSection } from "@/components/analysis-section";
 import { ResultsDashboard } from "@/components/results-dashboard";
-import { SettingsPanel } from "@/components/settings-panel";
 import { usePersonaAnalysis } from "@/hooks/usePersonaAnalysis";
 import { generateMockAnalysis } from "@/utils/mockAnalysis";
 import { ClaudeAnalysisService, AnalysisResult } from "@/utils/claudeAnalysis";
@@ -15,7 +14,6 @@ const Index = () => {
   const { toast } = useToast();
   const [showResults, setShowResults] = useState(false);
   const [claudeResults, setClaudeResults] = useState<AnalysisResult[]>([]);
-  const [hasApiKey, setHasApiKey] = useState(ClaudeAnalysisService.hasApiKey());
 
   const handleExcelProcessed = (data: { doelgroepen: any; availableSheets: string[] }) => {
     actions.setDoelgroepen(data.doelgroepen);
@@ -132,7 +130,6 @@ const Index = () => {
                 AI-gedreven gebruikersonderzoek & feedback analyse
               </p>
             </div>
-            <SettingsPanel onApiKeyChange={setHasApiKey} />
           </div>
         </div>
       </header>
