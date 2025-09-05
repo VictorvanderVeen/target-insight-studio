@@ -1,14 +1,35 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Link, Image, FileSpreadsheet } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Upload, Link, Image, FileSpreadsheet, CheckCircle, AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { parseExcelFile, validateExcelFile, defaultDoelgroepen } from "@/utils/excelProcessor";
 
-export function UploadSection() {
+interface UploadSectionProps {
+  onExcelProcessed: (data: { doelgroepen: any; availableSheets: string[] }) => void;
+  onWebsiteUrlChange: (url: string) => void;
+  onScreenshotChange: (file: File | null) => void;
+  loading: boolean;
+  error: string | null;
+  onError: (error: string | null) => void;
+}
+
+export function UploadSection({ 
+  onExcelProcessed, 
+  onWebsiteUrlChange, 
+  onScreenshotChange, 
+  loading, 
+  error, 
+  onError 
+}: UploadSectionProps) {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [excelProcessed, setExcelProcessed] = useState(false);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -22,121 +43,179 @@ export function UploadSection() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setDragActive(false);
     
-    const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      setUploadedFile(files[0]);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processExcelFile(files[0]);
     }
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files[0]) {
-      setUploadedFile(files[0]);
+    if (files && files.length > 0) {
+      processExcelFile(files[0]);
     }
+  };
+
+  const processExcelFile = async (file: File) => {
+    try {
+      onError(null);
+      validateExcelFile(file);
+      setUploadedFile(file);
+      
+      const data = await parseExcelFile(file);
+      onExcelProcessed(data);
+      setExcelProcessed(true);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Fout bij verwerken Excel bestand');
+    }
+  };
+
+  const handleWebsiteUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    setWebsiteUrl(url);
+    onWebsiteUrlChange(url);
+  };
+
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const file = files && files.length > 0 ? files[0] : null;
+    setScreenshot(file);
+    onScreenshotChange(file);
+  };
+
+  const useDefaultData = () => {
+    onExcelProcessed({
+      doelgroepen: defaultDoelgroepen,
+      availableSheets: Object.keys(defaultDoelgroepen)
+    });
+    setExcelProcessed(true);
   };
 
   return (
-    <Card className="shadow-card border-border/50 transition-smooth hover:shadow-elegant">
-      <CardContent className="p-8">
-        <div className="space-y-8">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground mb-2">
-              Upload Personas Data
-            </h2>
-            <p className="text-muted-foreground">
-              Upload een Excel bestand met persona data of voer een website URL in voor analyse
-            </p>
-          </div>
-
-          {/* Excel Upload */}
-          <div className="space-y-4">
-            <Label className="text-base font-medium">Excel Bestand</Label>
+    <Card className="shadow-card border-border/50">
+      <CardHeader className="pb-6">
+        <CardTitle className="text-2xl flex items-center gap-3">
+          <Upload className="w-7 h-7 text-primary" />
+          Upload & Configuratie
+        </CardTitle>
+        <p className="text-muted-foreground">
+          Upload je Excel bestand met personas en voeg de website URL of screenshot toe
+        </p>
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {excelProcessed && (
+          <Alert>
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>Excel bestand succesvol verwerkt!</AlertDescription>
+          </Alert>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Tabs defaultValue="excel" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+            <TabsTrigger value="excel" className="flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4" />
+              Excel Upload
+            </TabsTrigger>
+            <TabsTrigger value="website" className="flex items-center gap-2">
+              <Link className="w-4 h-4" />
+              Website Input
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="excel" className="space-y-4">
             <div
               className={`
-                relative border-2 border-dashed rounded-lg p-8 text-center transition-smooth
+                relative border-2 border-dashed rounded-lg transition-spring cursor-pointer
                 ${dragActive 
                   ? 'border-primary bg-primary/5 shadow-glow' 
                   : 'border-border hover:border-primary/50 hover:bg-muted/50'
                 }
+                ${loading ? 'pointer-events-none opacity-60' : ''}
               `}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
             >
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileInput}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              
-              {uploadedFile ? (
-                <div className="space-y-3">
-                  <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto">
-                    <FileSpreadsheet className="w-6 h-6 text-success" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{uploadedFile.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
+              <div className="text-center p-8">
+                <FileSpreadsheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground mb-2">
+                  Sleep je Excel bestand hier naartoe of
+                </p>
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="excel-upload"
+                  disabled={loading}
+                />
+                <Label htmlFor="excel-upload" className="cursor-pointer">
+                  <Button variant="outline" disabled={loading}>
+                    {loading ? 'Verwerken...' : 'Kies bestand'}
+                  </Button>
+                </Label>
+                {uploadedFile && (
+                  <p className="text-sm text-success mt-2">
+                    ✓ {uploadedFile.name}
+                  </p>
+                )}
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Geen Excel bestand? Gebruik voorbeelddata:
+                  </p>
                   <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setUploadedFile(null)}
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={useDefaultData}
+                    disabled={loading || excelProcessed}
                   >
-                    Verwijderen
+                    Gebruik voorbeelddata
                   </Button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto">
-                    <Upload className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      Sleep je Excel bestand hierheen
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      of klik om te uploaden (.xlsx, .xls)
-                    </p>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
-
-          {/* URL Input */}
-          <div className="space-y-4">
-            <Label htmlFor="website-url" className="text-base font-medium">
-              Website URL
-            </Label>
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          </TabsContent>
+          
+          <TabsContent value="website" className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="website-url" className="text-sm font-medium">Website URL</Label>
                 <Input
-                  id="website-url"
                   type="url"
                   placeholder="https://example.com"
                   value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  className="pl-10"
+                  onChange={handleWebsiteUrlChange}
+                  className="transition-spring"
                 />
               </div>
-              <Button variant="outline" size="icon">
-                <Image className="w-4 h-4" />
-              </Button>
+              
+              <div className="text-center text-muted-foreground">of</div>
+              
+              <div>
+                <Label htmlFor="screenshot-upload" className="text-sm font-medium">Upload Screenshot</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleScreenshotChange}
+                  className="transition-spring"
+                />
+                {screenshot && (
+                  <p className="text-sm text-success mt-1">
+                    ✓ {screenshot.name}
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              We nemen automatisch een screenshot voor analyse
-            </p>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
