@@ -5,7 +5,7 @@ import { ResultsDashboard } from "@/components/results-dashboard";
 import { usePersonaAnalysis } from "@/hooks/usePersonaAnalysis";
 import { generateMockAnalysis } from "@/utils/mockAnalysis";
 import { ClaudeAnalysisService, AnalysisResult } from "@/utils/claudeAnalysis";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Brain } from "lucide-react";
 import { useState } from "react";
 
