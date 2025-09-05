@@ -37,21 +37,16 @@ serve(async (req) => {
                          Deno.env.get('SUPABASE_SECRET_ANTHROPIC_API_KEY') ||
                          Deno.env.get('SECRET_ANTHROPIC_API_KEY');
     
-    console.log('All environment variables:');
-    console.log(JSON.stringify(Object.keys(Deno.env.toObject()), null, 2));
-    console.log('Available env vars with ANTHROPIC:', Object.keys(Deno.env.toObject()).filter(key => key.includes('ANTHROPIC')));
-    console.log('API Key found:', !!anthropicApiKey);
+    console.log('API Key check:');
+    console.log('- Raw key exists:', Deno.env.get('ANTHROPIC_API_KEY') !== undefined);
+    console.log('- Key length:', anthropicApiKey?.length || 0);
+    console.log('- Key starts with sk-:', anthropicApiKey?.startsWith('sk-ant-') || false);
     
-    if (!anthropicApiKey) {
-      console.error('ANTHROPIC_API_KEY not found in environment variables');
-      console.error('Available secrets:', Object.keys(Deno.env.toObject()).filter(key => key.includes('SECRET') || key.includes('SUPABASE')));
+    if (!anthropicApiKey || anthropicApiKey.trim() === '') {
+      console.error('ANTHROPIC_API_KEY is empty or not found');
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'ANTHROPIC_API_KEY not configured. Available env vars: ' + Object.keys(Deno.env.toObject()).join(', '),
-        debug: {
-          allEnvVars: Object.keys(Deno.env.toObject()),
-          anthropicKeys: Object.keys(Deno.env.toObject()).filter(key => key.includes('ANTHROPIC'))
-        }
+        error: 'ANTHROPIC_API_KEY is not properly configured. Please add your Claude API key in the Supabase secrets.',
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -185,7 +180,7 @@ Formaat: Woord1, Woord2, Woord3`;
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-5-haiku-20241022',
         max_tokens: 200,
         messages: [{
           role: 'user',
