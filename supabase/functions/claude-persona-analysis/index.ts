@@ -224,6 +224,7 @@ async function handleRequest(req: Request): Promise<Response> {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+}
 
   } catch (error) {
     console.error('=== CRITICAL ERROR ===');
