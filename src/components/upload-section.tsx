@@ -157,11 +157,14 @@ export function UploadSection({
                   id="excel-upload"
                   disabled={loading}
                 />
-                <Label htmlFor="excel-upload" className="cursor-pointer">
-                  <Button variant="outline" disabled={loading}>
-                    {loading ? 'Verwerken...' : 'Kies bestand'}
-                  </Button>
-                </Label>
+                <Button 
+                  variant="outline" 
+                  disabled={loading}
+                  onClick={() => document.getElementById('excel-upload')?.click()}
+                  type="button"
+                >
+                  {loading ? 'Verwerken...' : 'Kies bestand'}
+                </Button>
                 {uploadedFile && (
                   <p className="text-sm text-success mt-2">
                     ✓ {uploadedFile.name}
