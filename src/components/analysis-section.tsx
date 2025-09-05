@@ -50,8 +50,7 @@ export function AnalysisSection({
     }
   }, []);
 
-  const startClaudeAnalysis = async () => {
-
+  const startClaudeAnalysis = async (useDemoMode = false) => {
     setIsClaudeAnalyzing(true);
     setAnalysisError("");
     setShowResults(false);
@@ -72,7 +71,8 @@ export function AnalysisSection({
         },
         (error) => {
           setAnalysisError(error);
-        }
+        },
+        useDemoMode
       );
       
       setClaudeResults(results);
@@ -85,6 +85,10 @@ export function AnalysisSection({
       setIsClaudeAnalyzing(false);
       setCurrentPersona("");
     }
+  };
+
+  const startDemoMode = async () => {
+    await startClaudeAnalysis(true);
   };
 
   const stopAnalysis = () => {
@@ -269,7 +273,7 @@ export function AnalysisSection({
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button 
-                onClick={startClaudeAnalysis}
+                onClick={() => startClaudeAnalysis(false)}
                 disabled={!canStartAnalysis}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-spring h-12 text-base font-semibold"
               >
@@ -277,13 +281,13 @@ export function AnalysisSection({
                 Start Claude Analyse
               </Button>
               <Button 
-                onClick={onStartTestAnalysis}
+                onClick={startDemoMode}
                 disabled={selectedPersonas.length === 0}
                 variant="outline"
                 className="px-6 h-12 border-2"
               >
                 <TestTube className="w-5 h-5 mr-2" />
-                Test Mode
+                Demo Mode
               </Button>
             </div>
             

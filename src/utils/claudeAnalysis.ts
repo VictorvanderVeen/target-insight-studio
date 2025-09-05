@@ -55,7 +55,8 @@ export class ClaudeAnalysisService {
     personas: any[],
     websiteUrl: string,
     onProgress: (progress: AnalysisProgress) => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    demoMode: boolean = false
   ): Promise<AnalysisResult[]> {
     
     const questions = getAllQuestions();
@@ -70,31 +71,34 @@ export class ClaudeAnalysisService {
       errors: []
     };
 
-    // Check for existing progress
-    const savedProgress = this.loadProgress();
-    if (savedProgress && savedProgress.totalPersonas === personas.length) {
-      progress = savedProgress;
-      onProgress(progress);
-      
-      // Ask user if they want to resume
-      const resume = confirm(`Er is een eerdere analyse gevonden met ${progress.completed.length} van ${progress.totalPersonas} personas voltooid. Wil je doorgaan waar je was gebleven?`);
-      if (!resume) {
-        progress.completed = [];
-        progress.errors = [];
-        progress.currentPersona = 0;
-        progress.currentBatch = 0;
-        this.clearProgress();
+    // Check for existing progress only if not in demo mode
+    if (!demoMode) {
+      const savedProgress = this.loadProgress();
+      if (savedProgress && savedProgress.totalPersonas === personas.length) {
+        progress = savedProgress;
+        onProgress(progress);
+        
+        // Ask user if they want to resume
+        const resume = confirm(`Er is een eerdere analyse gevonden met ${progress.completed.length} van ${progress.totalPersonas} personas voltooid. Wil je doorgaan waar je was gebleven?`);
+        if (!resume) {
+          progress.completed = [];
+          progress.errors = [];
+          progress.currentPersona = 0;
+          progress.currentBatch = 0;
+          this.clearProgress();
+        }
       }
     }
 
     try {
-      console.log('Calling claude-persona-analysis edge function');
+      console.log(`Starting ${demoMode ? 'DEMO' : 'PRODUCTION'} Claude analysis`);
       
       const response = await supabase.functions.invoke('claude-persona-analysis', {
         body: {
-          personas: personas.slice(progress.currentPersona),
+          personas: demoMode ? personas : personas.slice(progress.currentPersona),
           questions,
           websiteUrl,
+          demoMode,
           batchSize: this.BATCH_SIZE
         }
       });
@@ -103,6 +107,20 @@ export class ClaudeAnalysisService {
 
       if (response.error) {
         console.error('Supabase function error:', response.error);
+        
+        // Check if it's a fallback scenario
+        if (response.error.message?.includes('ANTHROPIC_API_KEY') || 
+            response.data?.fallback || 
+            response.data?.error?.includes('ANTHROPIC_API_KEY')) {
+          
+          console.log('API key not available, offering demo mode');
+          const useDemoMode = confirm('Claude API sleutel is niet beschikbaar. Wil je demo mode gebruiken met mock data?');
+          
+          if (useDemoMode) {
+            return this.startAnalysis(personas, websiteUrl, onProgress, onError, true);
+          }
+        }
+        
         throw new Error(`API Error: ${response.error.message}`);
       }
 
@@ -114,13 +132,24 @@ export class ClaudeAnalysisService {
       
       if (!data.success) {
         console.error('Edge function returned error:', data.error);
+        
+        // Check for fallback scenario in data
+        if (data.fallback && data.error?.includes('ANTHROPIC_API_KEY')) {
+          console.log('API key not configured, offering demo mode');
+          const useDemoMode = confirm('Claude API sleutel is niet geconfigureerd. Wil je demo mode gebruiken met mock data?');
+          
+          if (useDemoMode) {
+            return this.startAnalysis(personas, websiteUrl, onProgress, onError, true);
+          }
+        }
+        
         throw new Error(data.error || 'Unknown API error');
       }
 
       console.log('Successfully processed results:', data);
 
-      // Combine with previous results if resuming
-      const allResults = [...progress.completed, ...data.results];
+      // Combine with previous results if resuming (not applicable in demo mode)
+      const allResults = demoMode ? data.results : [...progress.completed, ...data.results];
       
       // Final progress update
       progress = {
@@ -132,15 +161,35 @@ export class ClaudeAnalysisService {
       };
       
       onProgress(progress);
-      this.clearProgress();
+      
+      if (!demoMode) {
+        this.clearProgress();
+      }
       
       return allResults;
 
     } catch (error) {
       console.error('Analysis failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Suggest demo mode if API fails
+      if (!demoMode && (
+        errorMessage.includes('ANTHROPIC_API_KEY') || 
+        errorMessage.includes('API Error') ||
+        errorMessage.includes('Edge Function returned a non-2xx status code')
+      )) {
+        console.log('API error detected, offering demo mode');
+        const useDemoMode = confirm(`Analyse mislukt: ${errorMessage}\n\nWil je demo mode proberen met mock data?`);
+        
+        if (useDemoMode) {
+          return this.startAnalysis(personas, websiteUrl, onProgress, onError, true);
+        }
+      }
+      
       progress.errors.push(errorMessage);
-      this.saveProgress(progress);
+      if (!demoMode) {
+        this.saveProgress(progress);
+      }
       onError(errorMessage);
       throw error;
     }
