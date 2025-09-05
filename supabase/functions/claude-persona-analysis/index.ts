@@ -37,14 +37,21 @@ serve(async (req) => {
                          Deno.env.get('SUPABASE_SECRET_ANTHROPIC_API_KEY') ||
                          Deno.env.get('SECRET_ANTHROPIC_API_KEY');
     
-    console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('ANTHROPIC')));
-    console.log('API Key status:', anthropicApiKey ? 'Present' : 'Missing');
+    console.log('All environment variables:');
+    console.log(JSON.stringify(Object.keys(Deno.env.toObject()), null, 2));
+    console.log('Available env vars with ANTHROPIC:', Object.keys(Deno.env.toObject()).filter(key => key.includes('ANTHROPIC')));
+    console.log('API Key found:', !!anthropicApiKey);
     
     if (!anthropicApiKey) {
-      console.error('ANTHROPIC_API_KEY not configured in environment');
+      console.error('ANTHROPIC_API_KEY not found in environment variables');
+      console.error('Available secrets:', Object.keys(Deno.env.toObject()).filter(key => key.includes('SECRET') || key.includes('SUPABASE')));
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'ANTHROPIC_API_KEY not configured' 
+        error: 'ANTHROPIC_API_KEY not configured. Available env vars: ' + Object.keys(Deno.env.toObject()).join(', '),
+        debug: {
+          allEnvVars: Object.keys(Deno.env.toObject()),
+          anthropicKeys: Object.keys(Deno.env.toObject()).filter(key => key.includes('ANTHROPIC'))
+        }
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
