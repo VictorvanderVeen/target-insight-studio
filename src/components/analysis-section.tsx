@@ -62,29 +62,35 @@ export function AnalysisSection({
             <Globe className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Website Preview</span>
           </div>
-          <div className="bg-card rounded border h-32 flex items-center justify-center">
-            <div className="text-center">
-              <Globe className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">{websiteUrl}</p>
-            </div>
+          <div className="bg-card rounded border h-48 flex items-center justify-center overflow-hidden">
+            <iframe 
+              src={websiteUrl} 
+              className="w-full h-full border-0"
+              title="Website Preview"
+              style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '200%', height: '200%' }}
+            />
           </div>
         </div>
       );
     }
     
     if (previewMode === 'screenshot' && screenshot) {
+      const imageUrl = URL.createObjectURL(screenshot);
       return (
         <div className="mt-4 p-4 bg-gradient-subtle rounded-lg border border-border/50">
           <div className="flex items-center gap-2 mb-2">
             <Image className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Screenshot Preview</span>
           </div>
-          <div className="bg-card rounded border h-32 flex items-center justify-center">
-            <div className="text-center">
-              <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">{screenshot.name}</p>
-            </div>
+          <div className="bg-card rounded border h-48 flex items-center justify-center overflow-hidden">
+            <img 
+              src={imageUrl} 
+              alt="Screenshot preview"
+              className="max-w-full max-h-full object-contain rounded"
+              onLoad={() => URL.revokeObjectURL(imageUrl)}
+            />
           </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">{screenshot.name}</p>
         </div>
       );
     }
