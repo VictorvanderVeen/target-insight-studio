@@ -23,18 +23,49 @@ interface AnalysisResponse {
 }
 
 serve(async (req) => {
+  console.log(`Received ${req.method} request to claude-persona-analysis`);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    console.log('API Key status:', anthropicApiKey ? 'Present' : 'Missing');
+    
     if (!anthropicApiKey) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
+      console.error('ANTHROPIC_API_KEY not configured in environment');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'ANTHROPIC_API_KEY not configured' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { personas, questions, websiteUrl, batchSize = 3 }: PersonaAnalysisRequest = await req.json();
+    const requestBody = await req.json();
+    console.log('Request body received:', JSON.stringify({
+      personasCount: requestBody.personas?.length,
+      questionsCount: requestBody.questions?.length,
+      websiteUrl: requestBody.websiteUrl,
+      batchSize: requestBody.batchSize
+    }));
+
+    const { personas, questions, websiteUrl, batchSize = 3 }: PersonaAnalysisRequest = requestBody;
+    
+    if (!personas || !questions || !websiteUrl) {
+      console.error('Missing required fields:', { personas: !!personas, questions: !!questions, websiteUrl: !!websiteUrl });
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Missing required fields: personas, questions, or websiteUrl' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     console.log(`Starting analysis for ${personas.length} personas, ${questions.length} questions`);
 
@@ -77,6 +108,8 @@ serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
+
+    console.log(`Analysis completed. Generated ${results.length} results`);
 
     return new Response(JSON.stringify({
       success: true,

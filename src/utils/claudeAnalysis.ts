@@ -88,6 +88,8 @@ export class ClaudeAnalysisService {
     }
 
     try {
+      console.log('Calling claude-persona-analysis edge function');
+      
       const response = await supabase.functions.invoke('claude-persona-analysis', {
         body: {
           personas: personas.slice(progress.currentPersona),
@@ -97,15 +99,25 @@ export class ClaudeAnalysisService {
         }
       });
 
+      console.log('Edge function response:', response);
+
       if (response.error) {
+        console.error('Supabase function error:', response.error);
         throw new Error(`API Error: ${response.error.message}`);
       }
 
       const { data } = response;
       
+      if (!data) {
+        throw new Error('No data returned from edge function');
+      }
+      
       if (!data.success) {
+        console.error('Edge function returned error:', data.error);
         throw new Error(data.error || 'Unknown API error');
       }
+
+      console.log('Successfully processed results:', data);
 
       // Combine with previous results if resuming
       const allResults = [...progress.completed, ...data.results];
@@ -125,6 +137,7 @@ export class ClaudeAnalysisService {
       return allResults;
 
     } catch (error) {
+      console.error('Analysis failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       progress.errors.push(errorMessage);
       this.saveProgress(progress);
