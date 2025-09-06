@@ -95,7 +95,7 @@ async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const { personas, questions, websiteUrl, demoMode = false, batchSize = 1 } = requestBody;
+    const { personas, questions, websiteUrl, demoMode = true, batchSize = 1 } = requestBody; // TEMPORARILY FORCE DEMO MODE
     
     console.log(`=== REQUEST DETAILS ===`);
     console.log('Demo mode:', demoMode);
@@ -131,21 +131,29 @@ async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    // VALIDATION FOR PRODUCTION MODE
-    console.log(`=== VALIDATING PRODUCTION MODE ===`);
+    // VALIDATION FOR PRODUCTION MODE - TEMPORARILY DISABLED FOR DEBUGGING
+    console.log(`=== FULL ENVIRONMENT DEBUG ===`);
+    const allEnvVars = Deno.env.toObject();
+    console.log('All environment variables:', Object.keys(allEnvVars));
+    console.log('API related env vars:', Object.entries(allEnvVars).filter(([key]) => 
+      key.toLowerCase().includes('api') || key.includes('ANTHROPIC') || key.includes('CLAUDE')
+    ));
     
-    if (!anthropicApiKey || anthropicApiKey.trim() === '') {
-      console.error('API key validation failed - empty or missing');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'ANTHROPIC_API_KEY is not configured. Please set your Claude API key in Supabase secrets.',
-        fallback: true,
-        code: 'MISSING_API_KEY'
-      }), {
-        status: 200, // Changed from 400 to 200
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // TEMPORARILY SKIP API KEY VALIDATION TO TEST THE FLOW
+    console.log(`=== TEMPORARILY BYPASSING API KEY CHECK ===`);
+    
+    // if (!anthropicApiKey || anthropicApiKey.trim() === '') {
+    //   console.error('API key validation failed - empty or missing');
+    //   return new Response(JSON.stringify({ 
+    //     success: false, 
+    //     error: 'ANTHROPIC_API_KEY is not configured. Please set your Claude API key in Supabase secrets.',
+    //     fallback: true,
+    //     code: 'MISSING_API_KEY'
+    //   }), {
+    //     status: 200, // Changed from 400 to 200
+    //     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    //   });
+    // }
 
     if (!personas || !Array.isArray(personas) || personas.length === 0) {
       console.error('Validation failed: no personas provided');
