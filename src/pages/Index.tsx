@@ -29,26 +29,33 @@ const Index = () => {
       actions.startAnalysis();
       actions.setTestMode(false);
       
-      // Hier zou normaal gesproken de echte API call komen
-      // Voor nu gebruiken we mock data
-      const results = await generateMockAnalysis(
+      // Gebruik de echte Claude API via ClaudeAnalysisService (static method)
+      const results = await ClaudeAnalysisService.startAnalysis(
         state.selectedPersonas,
         state.websiteUrl || 'Screenshot analysis',
-        actions.updateProgress
+        (progress) => {
+          actions.updateProgress(progress);
+        },
+        (error) => {
+          console.error('Claude analysis error:', error);
+          actions.setError(error);
+        },
+        false // demoMode = false voor echte API
       );
       
+      setClaudeResults(results);
       actions.setResults(results);
       setShowResults(true);
       
       toast({
         title: "Analyse voltooid",
-        description: `${state.selectedPersonas.length} personas geanalyseerd`,
+        description: `${state.selectedPersonas.length} personas geanalyseerd met Claude AI`,
       });
     } catch (error) {
       actions.setError('Fout tijdens analyse');
       toast({
         title: "Analyse fout",
-        description: "Er is iets misgegaan tijdens de analyse",
+        description: error instanceof Error ? error.message : 'Onbekende fout',
         variant: "destructive",
       });
     }
