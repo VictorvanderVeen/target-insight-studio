@@ -60,13 +60,14 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   try {
-    console.log(`=== CHECKING API KEY ===`);
+    console.log(`=== CHECKING API KEY (Updated) ===`);
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     console.log('API Key status:', {
       exists: !!anthropicApiKey,
       length: anthropicApiKey?.length || 0,
       startsCorrect: anthropicApiKey?.startsWith('sk-ant-') || false,
-      firstChars: anthropicApiKey?.substring(0, 10) || 'none'
+      firstChars: anthropicApiKey?.substring(0, 10) || 'none',
+      envKeys: Object.keys(Deno.env.toObject()).filter(k => k.includes('ANTHROPIC'))
     });
     
     console.log(`=== PARSING REQUEST BODY ===`);
