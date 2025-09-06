@@ -30,7 +30,7 @@ serve(async (req) => {
   try {
     return await handleRequest(req);
   } catch (globalError) {
-    console.error('=== GLOBAL ERROR HANDLER ===');
+    console.error('=== GLOBAL ERROR HANDLER (v2) ===');
     console.error('Global error:', globalError);
     
     return new Response(JSON.stringify({ 
@@ -46,9 +46,11 @@ serve(async (req) => {
 });
 
 async function handleRequest(req: Request): Promise<Response> {
-  console.log(`=== CLAUDE ANALYSIS REQUEST START ===`);
+  console.log(`=== CLAUDE ANALYSIS REQUEST START (v2) ===`);
   console.log(`Method: ${req.method}`);
   console.log(`URL: ${req.url}`);
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`All ENV keys:`, Object.keys(Deno.env.toObject()).sort());
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
