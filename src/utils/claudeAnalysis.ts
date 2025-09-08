@@ -110,6 +110,7 @@ export class ClaudeAnalysisService {
       };
       
       console.log('=== FRONTEND: Calling supabase.functions.invoke ===');
+      console.log(`CRITICAL: demoMode being sent = ${demoMode}`);
       const response = await supabase.functions.invoke('claude-persona-analysis', {
         body: requestBody
       });

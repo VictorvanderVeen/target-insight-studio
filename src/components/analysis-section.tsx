@@ -54,6 +54,11 @@ export function AnalysisSection({
   }, []);
 
   const startClaudeAnalysis = async (useDemoMode = false) => {
+    console.log(`=== STARTING CLAUDE ANALYSIS ===`);
+    console.log(`Demo Mode: ${useDemoMode}`);
+    console.log(`Analysis Type: ${analysisType}`);
+    console.log(`Selected Personas: ${selectedPersonas.length}`);
+    
     setIsClaudeAnalyzing(true);
     setAnalysisError("");
     setShowResults(false);
@@ -75,9 +80,12 @@ export function AnalysisSection({
         (error) => {
           setAnalysisError(error);
         },
-        useDemoMode,
+        useDemoMode, // EXPLICIET dooregeven - GEEN AUTO DEMO MODE
         analysisType
       );
+      
+      console.log(`Analysis completed. Results count: ${results.length}`);
+      console.log(`Demo mode was: ${useDemoMode}`);
       
       setClaudeResults(results);
       onClaudeAnalysisComplete(results);
@@ -306,15 +314,15 @@ export function AnalysisSection({
 
             <div className="flex gap-3">
               <Button 
-                onClick={() => startClaudeAnalysis(false)}
+                onClick={() => startClaudeAnalysis(false)} // EXPLICIET demoMode: false
                 disabled={!canStartAnalysis}
                 className="flex-1 bg-gradient-primary hover:shadow-glow transition-spring h-12 text-base font-semibold"
               >
                 <Brain className="w-5 h-5 mr-2" />
-                Start Claude Analyse
+                Start Claude Analyse (LIVE API)
               </Button>
               <Button 
-                onClick={startDemoMode}
+                onClick={() => startClaudeAnalysis(true)} // EXPLICIET demoMode: true
                 disabled={selectedPersonas.length === 0}
                 variant="outline"
                 className="px-6 h-12 border-2"

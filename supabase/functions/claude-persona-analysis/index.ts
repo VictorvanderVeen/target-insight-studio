@@ -178,6 +178,8 @@ async function handleRequest(req: Request): Promise<Response> {
 
     console.log(`=== STARTING CLAUDE ANALYSIS ===`);
     console.log(`Processing ${personas.length} personas with ${questions.length} questions`);
+    console.log(`CRITICAL: Demo mode is: ${demoMode}`);
+    console.log(`Website URL: ${websiteUrl}`);
 
     const results: AnalysisResponse[] = [];
     const startTime = Date.now();
