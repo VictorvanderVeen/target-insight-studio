@@ -191,7 +191,7 @@ async function handleRequest(req: Request): Promise<Response> {
       console.log(`=== PROCESSING PERSONA ${i + 1}: ${persona.naam} ===`);
       
       try {
-        const personaResults = await batchAnalyzePersona(persona, questions.slice(0, 3), websiteUrl, anthropicApiKey, imageData);
+        const personaResults = await batchAnalyzePersona(persona, questions, websiteUrl, anthropicApiKey, imageData);
         results.push(...personaResults);
         console.log(`Successfully processed ${persona.naam} - ${personaResults.length} responses`);
         
@@ -205,7 +205,7 @@ async function handleRequest(req: Request): Promise<Response> {
         console.error(`Error processing persona ${persona.naam}:`, error);
         
         // Add fallback responses for all questions
-        for (const question of questions.slice(0, 3)) {
+        for (const question of questions) {
           results.push({
             personaId: persona.id,
             vraagId: question.id,
@@ -225,11 +225,11 @@ async function handleRequest(req: Request): Promise<Response> {
       success: true,
       results,
       totalPersonas: Math.min(personas.length, 2),
-      totalQuestions: Math.min(questions.length, 3),
+      totalQuestions: questions.length,
       processedItems: results.length,
       processingTime,
       demoMode: false,
-      note: "Limited to 2 personas and 3 questions for testing"
+      note: "Processing all questions for selected analysis type"
     };
 
     console.log('=== RETURNING SUCCESS RESPONSE ===');
