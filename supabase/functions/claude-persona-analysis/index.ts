@@ -325,6 +325,10 @@ Formaat: Woord1, Woord2, Woord3`;
 }
 
 function parseClaudeResponse(personaId: string, vraagId: string, response: string, questionType: string): AnalysisResponse {
+  console.log(`=== PARSING INDIVIDUAL RESPONSE ===`);
+  console.log(`PersonaID: ${personaId}, VraagID: ${vraagId}, Type: ${questionType}`);
+  console.log(`Response to parse: "${response}"`);
+  
   const result: AnalysisResponse = {
     personaId,
     vraagId,
@@ -332,38 +336,71 @@ function parseClaudeResponse(personaId: string, vraagId: string, response: strin
   };
 
   try {
-    if (questionType === 'score') {
-      // Look for score pattern
-      const scoreMatch = response.match(/(?:Score|score):\s*(\d+)/i);
-      if (scoreMatch) {
-        result.score = parseInt(scoreMatch[1]);
-      }
+    if (questionType === 'score' || questionType === 'mixed') {
+      // Look for score pattern - much more flexible
+      const scoreMatch = response.match(/(?:Score|score|Score:|score:)\s*([1-7])/i) || 
+                        response.match(/\b([1-7])\b/) || // Any single digit 1-7
+                        response.match(/([1-7])\s*(?:\/7|uit 7|van 7)/i);
       
-      // Look for reason pattern
-      const reasonMatch = response.match(/(?:Reden|reden|Reason|reason):\s*(.+)/i);
-      if (reasonMatch) {
-        result.uitleg = reasonMatch[1].trim();
-      } else {
-        // If no explicit reason format, take the part after the score
-        const lines = response.split('\n').filter(line => line.trim());
-        if (lines.length > 1) {
-          result.uitleg = lines.slice(1).join(' ').trim();
+      if (scoreMatch) {
+        const scoreValue = parseInt(scoreMatch[1]);
+        if (scoreValue >= 1 && scoreValue <= 7) {
+          result.score = scoreValue;
+          console.log(`✓ Found score: ${scoreValue}`);
         }
       }
-    } else if (questionType === 'text' && response.includes(',')) {
-      // Parse comma-separated words
-      const words = response.split(',').map(w => w.trim()).filter(w => w.length > 0);
-      if (words.length >= 3) {
-        result.woorden = words.slice(0, 3);
+      
+      // Look for explanation - everything that's not the score
+      let explanation = response
+        .replace(/(?:Score|score|Score:|score:)\s*[1-7]/i, '') // Remove score part
+        .replace(/^[-\s]+/, '') // Remove leading dashes/spaces
+        .replace(/^\s*-\s*/, '') // Remove leading dash
+        .trim();
+      
+      if (explanation.length > 3) {
+        result.uitleg = explanation;
+        console.log(`✓ Found explanation: "${explanation}"`);
       }
-    } else {
+    } 
+    else if (questionType === 'woorden' || (questionType === 'text' && response.includes(','))) {
+      // Parse comma-separated words - much more flexible
+      const cleanResponse = response
+        .replace(/^(Woorden:|woorden:)/i, '') // Remove "Woorden:" prefix
+        .replace(/[\[\]"']/g, '') // Remove brackets and quotes
+        .trim();
+      
+      const words = cleanResponse
+        .split(/[,\s]+/) // Split on comma or multiple spaces
+        .map(w => w.trim())
+        .filter(w => w.length > 1 && /^[a-zA-Z]+/.test(w)); // Only words with letters
+      
+      if (words.length >= 1) {
+        result.woorden = words.slice(0, 3); // Max 3 words
+        console.log(`✓ Found words: ${result.woorden.join(', ')}`);
+      }
+    } 
+    else {
       // For other text responses, store as explanation
-      result.uitleg = response.trim();
+      const cleanText = response
+        .replace(/^(Antwoord:|antwoord:)/i, '') // Remove "Antwoord:" prefix
+        .trim();
+      
+      if (cleanText.length > 2) {
+        result.uitleg = cleanText;
+        console.log(`✓ Found text: "${cleanText}"`);
+      }
     }
   } catch (error) {
     console.error('Error parsing response:', error);
     result.uitleg = response; // Fallback to raw response
   }
+
+  console.log(`=== PARSE RESULT ===`, {
+    hasScore: !!result.score,
+    hasUitleg: !!result.uitleg, 
+    hasWoorden: !!result.woorden,
+    wordCount: result.woorden?.length || 0
+  });
 
   return result;
 }
@@ -382,41 +419,29 @@ async function batchAnalyzePersona(persona: any, questions: any[], websiteUrl: s
   
   // Create a batch prompt that includes all questions
   const batchPrompt = `Je bent ${persona.naam}, ${persona.leeftijd} jaar oud.
-Beroep: ${persona.beroep}
+Beroep: ${persona.beroep}  
 Woonplaats: ${persona.woonplaats}
-Interesses: ${persona["Hobby's & Interesses"] || persona.hobbies || 'Geen opgegeven'}
-Motivatie: ${persona["Motivatie (Waarom UAF steunen?)"] || persona.motivatie || 'Geen opgegeven'}
-Kanalen: ${persona.kanalen || 'Onbekend'}
 
 BELANGRIJKE INSTRUCTIES:
-- Reageer ALLEEN vanuit dit persona perspectief  
-- Wees authentiek voor jouw achtergrond en leeftijd
+- Reageer ALLEEN vanuit dit persona perspectief
+- Gebruik EXACT dit formaat voor elke vraag
 - Geef korte, directe antwoorden
-- Gebruik EXACT het aangegeven antwoordformaat
 
-Bekijk deze ${websiteUrl.includes('http') ? 'website' : 'advertentie'}: ${websiteUrl}
+Bekijk: ${websiteUrl}
 
-ANTWOORD OP ELKE VRAAG IN DIT EXACTE FORMAAT:
+BEANTWOORD DEZE VRAGEN (gebruik exact het ID: formaat):
 
-${questions.map((q, index) => {
-  let formatExample = '';
+${questions.map(q => {
   if (q.type === 'score' || q.type === 'mixed') {
-    formatExample = ` | FORMAAT: ${q.id}: Score 5 - Omdat dit heel duidelijk is`;
+    return `${q.id}: ${q.tekst} | ANTWOORD: ${q.id}: Score 6 - Reden hier`;
   } else if (q.type === 'woorden') {
-    formatExample = ` | FORMAAT: ${q.id}: Professioneel, Modern, Duidelijk`;  
+    return `${q.id}: ${q.tekst} | ANTWOORD: ${q.id}: Woord1, Woord2, Woord3`;
   } else {
-    formatExample = ` | FORMAAT: ${q.id}: Mijn antwoord hier`;
+    return `${q.id}: ${q.tekst} | ANTWOORD: ${q.id}: Mijn tekst antwoord`;
   }
-  
-  return `${q.id}: ${q.tekst}${formatExample}`;
-}).join('\n')}
+}).join('\n\n')}
 
-GEEF JE ANTWOORDEN NU (gebruik exact het ${q.id}: formaat):`;
-
-  console.log('=== BATCH PROMPT CREATED ===');
-  console.log('Prompt length:', batchPrompt.length);
-  console.log('Questions in prompt:', questions.map(q => q.id).join(', '));
-  console.log('Full prompt preview:', batchPrompt.substring(0, 500) + '...');
+GEEF NU JE ANTWOORDEN (start elke regel met het vraag ID):`;
 
   try {
     console.log(`=== MAKING CLAUDE API CALL ===`);
@@ -456,7 +481,8 @@ GEEF JE ANTWOORDEN NU (gebruik exact het ${q.id}: formaat):`;
     console.log('Full API response object:', JSON.stringify(data, null, 2));
     console.log(`Extracted content:`, content);
     console.log(`Content length:`, content.length);
-    console.log(`Content preview (first 200 chars):`, content.substring(0, 200));
+    console.log(`Content preview (first 500 chars):`, content.substring(0, 500));
+    console.log(`Content lines:`, content.split('\n').length);
     console.log(`=== END CLAUDE API RESPONSE ===`);
 
     return parseBatchResponse(persona.id, questions, content);
