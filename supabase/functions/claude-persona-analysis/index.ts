@@ -64,14 +64,15 @@ async function handleRequest(req: Request): Promise<Response> {
   try {
     console.log(`=== CHECKING API KEY (v4) ===`);
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    console.log('API Key status:', {
-      exists: !!anthropicApiKey,
-      length: anthropicApiKey?.length || 0,
-      startsCorrect: anthropicApiKey?.startsWith('sk-ant-') || false,
-      firstChars: anthropicApiKey?.substring(0, 10) || 'none',
-      anthropicExists: !!Deno.env.get('ANTHROPIC_API_KEY'),
-      allEnvKeys: Object.keys(Deno.env.toObject()).sort()
-    });
+    
+    console.log('=== DETAILED API KEY DEBUG ===');
+    console.log('Raw API Key exists:', !!anthropicApiKey);
+    console.log('API Key length:', anthropicApiKey?.length || 0);
+    console.log('API Key first 10 chars:', anthropicApiKey?.substring(0, 10) || 'none');
+    console.log('API Key starts with sk-ant-:', anthropicApiKey?.startsWith('sk-ant-') || false);
+    console.log('All environment variables:', Object.keys(Deno.env.toObject()).sort());
+    console.log('ANTHROPIC_API_KEY exists in env:', 'ANTHROPIC_API_KEY' in Deno.env.toObject());
+    console.log('=== END API KEY DEBUG ===');
     
     console.log(`=== PARSING REQUEST BODY ===`);
     let requestBody;
@@ -420,6 +421,11 @@ ${questions.map((q, index) => {
 }).join('\n')}`;
 
   try {
+    console.log(`=== MAKING CLAUDE API CALL ===`);
+    console.log('API Key being used:', apiKey?.substring(0, 15) + '...');
+    console.log('Model:', 'claude-3-5-haiku-20241022');
+    console.log('Batch prompt length:', batchPrompt.length);
+    
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -436,6 +442,9 @@ ${questions.map((q, index) => {
         }]
       })
     });
+
+    console.log('API Response status:', response.status);
+    console.log('API Response ok:', response.ok);
 
     if (!response.ok) {
       const errorData = await response.text();
