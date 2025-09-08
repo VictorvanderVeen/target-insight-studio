@@ -388,37 +388,35 @@ Interesses: ${persona["Hobby's & Interesses"] || persona.hobbies || 'Geen opgege
 Motivatie: ${persona["Motivatie (Waarom UAF steunen?)"] || persona.motivatie || 'Geen opgegeven'}
 Kanalen: ${persona.kanalen || 'Onbekend'}
 
-INSTRUCTIES:
-- Reageer ALLEEN vanuit dit persona perspectief
+BELANGRIJKE INSTRUCTIES:
+- Reageer ALLEEN vanuit dit persona perspectief  
 - Wees authentiek voor jouw achtergrond en leeftijd
-- Als iets je niet aanspreekt, zeg dat eerlijk
-- Geef specifieke feedback gebaseerd op jouw persoonlijke situatie
+- Geef korte, directe antwoorden
+- Gebruik EXACT het aangegeven antwoordformaat
 
 Bekijk deze ${websiteUrl.includes('http') ? 'website' : 'advertentie'}: ${websiteUrl}
 
-Beantwoord de volgende vragen elk op een nieuwe regel:
+ANTWOORD OP ELKE VRAAG IN DIT EXACTE FORMAAT:
 
 ${questions.map((q, index) => {
-  let questionText = `${index + 1}. ${q.tekst}`;
-  
-  if (q.type === 'score') {
-    questionText += ' (Geef score 1-10 en korte uitleg)';
-  } else if (q.type === 'text' && q.tekst.includes('één woord')) {
-    questionText += ' (Geef precies 3 woorden)';
+  let formatExample = '';
+  if (q.type === 'score' || q.type === 'mixed') {
+    formatExample = ` | FORMAAT: ${q.id}: Score 5 - Omdat dit heel duidelijk is`;
+  } else if (q.type === 'woorden') {
+    formatExample = ` | FORMAAT: ${q.id}: Professioneel, Modern, Duidelijk`;  
+  } else {
+    formatExample = ` | FORMAAT: ${q.id}: Mijn antwoord hier`;
   }
   
-  return questionText;
+  return `${q.id}: ${q.tekst}${formatExample}`;
 }).join('\n')}
 
-Formaat per antwoord:
-${questions.map((q, index) => {
-  if (q.type === 'score') {
-    return `${index + 1}. Score: [1-10] | Uitleg: [reden]`;
-  } else if (q.type === 'text' && q.tekst.includes('één woord')) {
-    return `${index + 1}. Woord1, Woord2, Woord3`;
-  }
-  return `${index + 1}. [jouw antwoord]`;
-}).join('\n')}`;
+GEEF JE ANTWOORDEN NU (gebruik exact het ${q.id}: formaat):`;
+
+  console.log('=== BATCH PROMPT CREATED ===');
+  console.log('Prompt length:', batchPrompt.length);
+  console.log('Questions in prompt:', questions.map(q => q.id).join(', '));
+  console.log('Full prompt preview:', batchPrompt.substring(0, 500) + '...');
 
   try {
     console.log(`=== MAKING CLAUDE API CALL ===`);
@@ -474,100 +472,91 @@ function parseBatchResponse(personaId: string, questions: any[], response: strin
   console.log(`=== PARSING BATCH RESPONSE FOR PERSONA ${personaId} ===`);
   console.log('Raw Claude response:', response);
   console.log('Response length:', response.length);
+  console.log('Questions to parse:', questions.map(q => q.id));
   
   const results: AnalysisResponse[] = [];
   
-  // Try different parsing strategies
-  
-  // Strategy 1: Look for numbered responses (1., 2., etc.)
-  let lines = response.split('\n').filter(line => line.trim());
-  console.log('Split into lines:', lines.length);
-  
-  // Strategy 2: If no clear structure, try to extract based on question patterns
-  if (lines.length === 1 && response.length > 50) {
-    // Claude might have returned everything on one line, try to split differently
-    lines = response.split(/(?=\d+\.)/g).filter(line => line.trim());
-    console.log('Re-split by number patterns:', lines.length);
-  }
-  
-  lines.forEach((line, index) => {
-    console.log(`Line ${index}: "${line}"`);
-  });
-  
-  for (let i = 0; i < questions.length; i++) {
-    const question = questions[i];
-    const questionNumber = i + 1;
+  // Try to find responses using question IDs (A1:, B1:, etc.)
+  for (const question of questions) {
+    console.log(`\n--- Parsing question ${question.id} ---`);
     
-    console.log(`Looking for question ${questionNumber} (${question.id})`);
+    let foundResponse = null;
+    let matchMethod = '';
     
-    // Try multiple patterns to find the response
-    let responseLine = lines.find(line => {
-      const trimmed = line.trim();
-      return (
-        trimmed.startsWith(`${questionNumber}.`) ||
-        trimmed.startsWith(`${questionNumber}:`) ||
-        trimmed.startsWith(`${questionNumber} `) ||
-        trimmed.startsWith(`Vraag ${questionNumber}`) ||
-        trimmed.includes(`${questionNumber}.`) ||
-        trimmed.match(new RegExp(`^${questionNumber}[\\s\\.:]`))
-      );
-    });
+    // Method 1: Look for exact ID pattern "A1:" or "A1 "
+    const idPattern1 = new RegExp(`${question.id}:\\s*(.+?)(?=\\n|$)`, 'i');
+    const idMatch1 = response.match(idPattern1);
+    if (idMatch1) {
+      foundResponse = idMatch1[1].trim();
+      matchMethod = 'ID with colon';
+    }
     
-    // If no numbered response found, try to extract from context
-    if (!responseLine && response.includes(question.tekst.substring(0, 20))) {
-      // Look for the question text in the response
-      const questionPos = response.indexOf(question.tekst.substring(0, 20));
-      if (questionPos !== -1) {
-        const afterQuestion = response.substring(questionPos + question.tekst.length);
-        const nextQuestionPos = afterQuestion.search(/\d+\./);
-        responseLine = nextQuestionPos > 0 ? 
-          afterQuestion.substring(0, nextQuestionPos).trim() : 
-          afterQuestion.substring(0, 100).trim();
-        console.log(`Extracted by question text: "${responseLine}"`);
+    // Method 2: Look for ID at start of line
+    if (!foundResponse) {
+      const idPattern2 = new RegExp(`^${question.id}\\s+(.+?)(?=\\n|$)`, 'im');
+      const idMatch2 = response.match(idPattern2);
+      if (idMatch2) {
+        foundResponse = idMatch2[1].trim();
+        matchMethod = 'ID at line start';
       }
     }
     
-    // Last resort: if we have a single long response, try to extract parts
-    if (!responseLine && lines.length === 1 && response.length > 200) {
-      const parts = response.split(/[\.!?]\s+/).filter(p => p.trim().length > 10);
-      if (parts.length >= questions.length && i < parts.length) {
-        responseLine = parts[i].trim();
-        console.log(`Extracted from parts: "${responseLine}"`);
+    // Method 3: Look for ID anywhere in line
+    if (!foundResponse) {
+      const lines = response.split('\n');
+      for (const line of lines) {
+        if (line.includes(question.id) && line.length > question.id.length + 2) {
+          const idPos = line.indexOf(question.id);
+          foundResponse = line.substring(idPos + question.id.length).replace(/^[\s:]+/, '').trim();
+          if (foundResponse.length > 3) {
+            matchMethod = 'ID in line';
+            break;
+          }
+        }
       }
     }
     
-    if (responseLine) {
-      console.log(`Found response for Q${questionNumber}: "${responseLine}"`);
+    // Method 4: Fallback to sequential parsing (first response for first question, etc.)
+    if (!foundResponse) {
+      const responseLines = response.split('\n').filter(line => line.trim().length > 5);
+      const questionIndex = questions.indexOf(question);
+      if (questionIndex < responseLines.length && responseLines[questionIndex]) {
+        foundResponse = responseLines[questionIndex].trim();
+        matchMethod = 'sequential fallback';
+      }
+    }
+    
+    if (foundResponse && foundResponse.length > 2) {
+      console.log(`✓ Found via ${matchMethod}: "${foundResponse}"`);
+      
       // Clean up the response
-      let cleanResponse = responseLine
-        .replace(/^\d+[\.\:\s]+/, '') // Remove number prefix
-        .replace(/^(Vraag \d+[:.]?\s*)/, '') // Remove "Vraag X:" prefix
+      foundResponse = foundResponse
+        .replace(/^(Score|score):\s*/i, '')
+        .replace(/^[-\s]+/, '')
         .trim();
       
-      console.log(`Cleaned response: "${cleanResponse}"`);
-      
-      // If still empty or too short, use the original
-      if (cleanResponse.length < 3) {
-        cleanResponse = responseLine.trim();
-      }
-      
-      results.push(parseClaudeResponse(personaId, question.id, cleanResponse, question.type));
+      const parsed = parseClaudeResponse(personaId, question.id, foundResponse, question.type);
+      console.log(`✓ Parsed result:`, { 
+        score: parsed.score, 
+        hasUitleg: !!parsed.uitleg, 
+        hasWoorden: !!parsed.woorden,
+        wordCount: parsed.woorden?.length || 0
+      });
+      results.push(parsed);
     } else {
-      console.log(`NO RESPONSE FOUND for question ${questionNumber}`);
-      console.log(`Available lines starting with numbers:`, lines.filter(l => /^\d/.test(l.trim())));
+      console.log(`✗ NO MATCH FOUND for ${question.id}`);
+      console.log(`Available content preview: "${response.substring(0, 200)}..."`);
       
-      // Create a fallback response that indicates parsing failure
       results.push({
         personaId,
         vraagId: question.id,
-        rawResponse: `Parsing mislukt - origineel: ${response.substring(0, 100)}...`,
+        rawResponse: `Parser kon geen antwoord vinden voor ${question.id} in: ${response.substring(0, 100)}...`,
         fallback: true
       });
     }
   }
   
-  console.log(`=== PARSING COMPLETE: Generated ${results.length} results ===`);
-  console.log('Results summary:', results.map(r => ({ id: r.vraagId, hasScore: !!r.score, hasText: !!r.uitleg, hasWords: !!r.woorden, fallback: (r as any).fallback })));
+  console.log(`=== PARSING COMPLETE: ${results.filter(r => !(r as any).fallback).length}/${results.length} successful ===`);
   return results;
 }
 
