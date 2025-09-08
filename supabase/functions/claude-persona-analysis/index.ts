@@ -134,7 +134,7 @@ async function handleRequest(req: Request): Promise<Response> {
     // VALIDATION FOR PRODUCTION MODE
     console.log(`=== VALIDATING PRODUCTION MODE ===`);
     
-      if (!anthropicApiKey || anthropicApiKey.trim() === '') {
+    if (!anthropicApiKey || anthropicApiKey.trim() === '') {
       console.error('API key validation failed:', {
         exists: !!anthropicApiKey,
         isEmpty: !anthropicApiKey || anthropicApiKey.trim() === '',
