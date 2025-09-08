@@ -454,7 +454,12 @@ ${questions.map((q, index) => {
     const data = await response.json();
     const content = data.content[0]?.text || '';
     
-    console.log(`Batch response for ${persona.naam}:`, content);
+    console.log(`=== CLAUDE API RESPONSE DETAILS ===`);
+    console.log('Full API response object:', JSON.stringify(data, null, 2));
+    console.log(`Extracted content:`, content);
+    console.log(`Content length:`, content.length);
+    console.log(`Content preview (first 200 chars):`, content.substring(0, 200));
+    console.log(`=== END CLAUDE API RESPONSE ===`);
 
     return parseBatchResponse(persona.id, questions, content);
     
@@ -466,23 +471,38 @@ ${questions.map((q, index) => {
 
 // Parse the batch response into individual question responses
 function parseBatchResponse(personaId: string, questions: any[], response: string): AnalysisResponse[] {
+  console.log(`=== PARSING BATCH RESPONSE FOR PERSONA ${personaId} ===`);
+  console.log('Raw Claude response:', response);
+  console.log('Response length:', response.length);
+  
   const results: AnalysisResponse[] = [];
   const lines = response.split('\n').filter(line => line.trim());
+  
+  console.log('Split into lines:', lines.length);
+  lines.forEach((line, index) => {
+    console.log(`Line ${index}: "${line}"`);
+  });
   
   for (let i = 0; i < questions.length; i++) {
     const question = questions[i];
     const questionNumber = i + 1;
     
+    console.log(`Looking for question ${questionNumber} (${question.id})`);
+    
     // Find the line that starts with this question number
     const responseLine = lines.find(line => 
       line.trim().startsWith(`${questionNumber}.`) || 
-      line.trim().startsWith(`${questionNumber}:`)
+      line.trim().startsWith(`${questionNumber}:`) ||
+      line.trim().startsWith(`${questionNumber} `) // Also allow space after number
     );
     
     if (responseLine) {
-      const cleanResponse = responseLine.replace(/^\d+[\.\:]\s*/, '').trim();
+      console.log(`Found response for Q${questionNumber}: "${responseLine}"`);
+      const cleanResponse = responseLine.replace(/^\d+[\.\:\s]\s*/, '').trim();
+      console.log(`Cleaned response: "${cleanResponse}"`);
       results.push(parseClaudeResponse(personaId, question.id, cleanResponse, question.type));
     } else {
+      console.log(`NO RESPONSE FOUND for question ${questionNumber}`);
       // Fallback if we can't find the response
       results.push({
         personaId,
@@ -493,6 +513,7 @@ function parseBatchResponse(personaId: string, questions: any[], response: strin
     }
   }
   
+  console.log(`=== PARSING COMPLETE: Generated ${results.length} results ===`);
   return results;
 }
 
