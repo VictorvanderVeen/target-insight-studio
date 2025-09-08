@@ -5,17 +5,28 @@ import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { FileDown, TrendingUp, AlertTriangle, Lightbulb, MessageSquare } from "lucide-react";
 
-export function ResultsDashboard() {
-  // Mock data voor demonstratie
-  const averageScores = [
-    { question: 'Navigatie', score: 7.2 },
-    { question: 'Design', score: 8.1 },
-    { question: 'Content', score: 6.8 },
-    { question: 'Snelheid', score: 5.9 },
-    { question: 'Mobiel', score: 7.5 }
+interface ResultsDashboardProps {
+  processedResults?: {
+    averageScores: { question: string; score: number; questionId: string }[];
+    firstImpressions: { word: string; count: number; color: string }[];
+    improvements: { title: string; description: string; impact: string; priority: number }[];
+    summary: any;
+  };
+  totalPersonas?: number;
+  totalResults?: number;
+}
+
+export function ResultsDashboard({ processedResults, totalPersonas = 15, totalResults = 0 }: ResultsDashboardProps) {
+  // Use processed results if available, otherwise fallback to mock data
+  const averageScores = processedResults?.averageScores || [
+    { question: 'Navigatie', score: 7.2, questionId: 'nav_1' },
+    { question: 'Design', score: 8.1, questionId: 'design_1' },
+    { question: 'Content', score: 6.8, questionId: 'content_1' },
+    { question: 'Snelheid', score: 5.9, questionId: 'speed_1' },
+    { question: 'Mobiel', score: 7.5, questionId: 'mobile_1' }
   ];
 
-  const firstImpressions = [
+  const firstImpressions = processedResults?.firstImpressions || [
     { word: 'Professioneel', count: 12, color: '#6366f1' },
     { word: 'Modern', count: 8, color: '#8b5cf6' },
     { word: 'Verwarrend', count: 6, color: '#ef4444' },
@@ -23,7 +34,7 @@ export function ResultsDashboard() {
     { word: 'Langzaam', count: 4, color: '#f59e0b' }
   ];
 
-  const improvements = [
+  const improvements = processedResults?.improvements || [
     {
       title: "Verbeter laadtijden",
       description: "73% van de personas vond de website te langzaam laden",
@@ -67,7 +78,8 @@ export function ResultsDashboard() {
                 Analyse Resultaten
               </CardTitle>
               <p className="text-muted-foreground mt-1">
-                Gebaseerd op 15 persona analyses uitgevoerd op {new Date().toLocaleDateString('nl-NL')}
+                Gebaseerd op {totalPersonas} persona analyses uitgevoerd op {new Date().toLocaleDateString('nl-NL')}
+                {totalResults > 0 && ` (${totalResults} responses)`}
               </p>
             </div>
             <Button className="bg-gradient-primary hover:shadow-glow transition-spring">

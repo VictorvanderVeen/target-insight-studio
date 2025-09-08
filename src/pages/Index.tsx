@@ -183,7 +183,13 @@ const Index = () => {
             />
           )}
           
-          {showResults && state.results && <ResultsDashboard />}
+          {showResults && claudeResults.length > 0 && (
+            <ResultsDashboard 
+              processedResults={ClaudeAnalysisService.processResults(claudeResults)}
+              totalPersonas={state.selectedPersonas.length}
+              totalResults={claudeResults.length}
+            />
+          )}
         </div>
       </main>
     </div>
