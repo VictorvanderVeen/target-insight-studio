@@ -476,9 +476,20 @@ function parseBatchResponse(personaId: string, questions: any[], response: strin
   console.log('Response length:', response.length);
   
   const results: AnalysisResponse[] = [];
-  const lines = response.split('\n').filter(line => line.trim());
   
+  // Try different parsing strategies
+  
+  // Strategy 1: Look for numbered responses (1., 2., etc.)
+  let lines = response.split('\n').filter(line => line.trim());
   console.log('Split into lines:', lines.length);
+  
+  // Strategy 2: If no clear structure, try to extract based on question patterns
+  if (lines.length === 1 && response.length > 50) {
+    // Claude might have returned everything on one line, try to split differently
+    lines = response.split(/(?=\d+\.)/g).filter(line => line.trim());
+    console.log('Re-split by number patterns:', lines.length);
+  }
+  
   lines.forEach((line, index) => {
     console.log(`Line ${index}: "${line}"`);
   });
@@ -489,31 +500,74 @@ function parseBatchResponse(personaId: string, questions: any[], response: strin
     
     console.log(`Looking for question ${questionNumber} (${question.id})`);
     
-    // Find the line that starts with this question number
-    const responseLine = lines.find(line => 
-      line.trim().startsWith(`${questionNumber}.`) || 
-      line.trim().startsWith(`${questionNumber}:`) ||
-      line.trim().startsWith(`${questionNumber} `) // Also allow space after number
-    );
+    // Try multiple patterns to find the response
+    let responseLine = lines.find(line => {
+      const trimmed = line.trim();
+      return (
+        trimmed.startsWith(`${questionNumber}.`) ||
+        trimmed.startsWith(`${questionNumber}:`) ||
+        trimmed.startsWith(`${questionNumber} `) ||
+        trimmed.startsWith(`Vraag ${questionNumber}`) ||
+        trimmed.includes(`${questionNumber}.`) ||
+        trimmed.match(new RegExp(`^${questionNumber}[\\s\\.:]`))
+      );
+    });
+    
+    // If no numbered response found, try to extract from context
+    if (!responseLine && response.includes(question.tekst.substring(0, 20))) {
+      // Look for the question text in the response
+      const questionPos = response.indexOf(question.tekst.substring(0, 20));
+      if (questionPos !== -1) {
+        const afterQuestion = response.substring(questionPos + question.tekst.length);
+        const nextQuestionPos = afterQuestion.search(/\d+\./);
+        responseLine = nextQuestionPos > 0 ? 
+          afterQuestion.substring(0, nextQuestionPos).trim() : 
+          afterQuestion.substring(0, 100).trim();
+        console.log(`Extracted by question text: "${responseLine}"`);
+      }
+    }
+    
+    // Last resort: if we have a single long response, try to extract parts
+    if (!responseLine && lines.length === 1 && response.length > 200) {
+      const parts = response.split(/[\.!?]\s+/).filter(p => p.trim().length > 10);
+      if (parts.length >= questions.length && i < parts.length) {
+        responseLine = parts[i].trim();
+        console.log(`Extracted from parts: "${responseLine}"`);
+      }
+    }
     
     if (responseLine) {
       console.log(`Found response for Q${questionNumber}: "${responseLine}"`);
-      const cleanResponse = responseLine.replace(/^\d+[\.\:\s]\s*/, '').trim();
+      // Clean up the response
+      let cleanResponse = responseLine
+        .replace(/^\d+[\.\:\s]+/, '') // Remove number prefix
+        .replace(/^(Vraag \d+[:.]?\s*)/, '') // Remove "Vraag X:" prefix
+        .trim();
+      
       console.log(`Cleaned response: "${cleanResponse}"`);
+      
+      // If still empty or too short, use the original
+      if (cleanResponse.length < 3) {
+        cleanResponse = responseLine.trim();
+      }
+      
       results.push(parseClaudeResponse(personaId, question.id, cleanResponse, question.type));
     } else {
       console.log(`NO RESPONSE FOUND for question ${questionNumber}`);
-      // Fallback if we can't find the response
+      console.log(`Available lines starting with numbers:`, lines.filter(l => /^\d/.test(l.trim())));
+      
+      // Create a fallback response that indicates parsing failure
       results.push({
         personaId,
         vraagId: question.id,
-        rawResponse: 'Geen antwoord gevonden in batch response',
+        rawResponse: `Parsing mislukt - origineel: ${response.substring(0, 100)}...`,
         fallback: true
       });
     }
   }
   
   console.log(`=== PARSING COMPLETE: Generated ${results.length} results ===`);
+  console.log('Results summary:', results.map(r => ({ id: r.vraagId, hasScore: !!r.score, hasText: !!r.uitleg, hasWords: !!r.woorden, fallback: (r as any).fallback })));
   return results;
 }
 

@@ -262,36 +262,79 @@ export class ClaudeAnalysisService {
     improvements: { title: string; description: string; impact: string; priority: number }[];
     summary: any;
   } {
+    console.log('=== PROCESSING RESULTS START ===');
+    console.log('RAW RESULTS RECEIVED:', results);
+    console.log('Results length:', results.length);
+    
+    // Debug each result
+    results.forEach((result, index) => {
+      console.log(`Result ${index}:`, {
+        personaId: result.personaId,
+        vraagId: result.vraagId,
+        score: result.score,
+        uitleg: result.uitleg,
+        woorden: result.woorden,
+        rawResponse: result.rawResponse,
+        fallback: (result as any).fallback
+      });
+    });
+
+    // Group results by question
+    const resultsByQuestion = {};
+    results.forEach(r => {
+      if (!resultsByQuestion[r.vraagId]) {
+        resultsByQuestion[r.vraagId] = [];
+      }
+      resultsByQuestion[r.vraagId].push(r);
+    });
+    
+    console.log('RESULTS GROUPED BY QUESTION:', resultsByQuestion);
+    
     const scoreQuestions = getAllQuestions().filter(q => q.type === 'score');
-    const textQuestions = getAllQuestions().filter(q => q.type === 'text');
+    const textQuestions = getAllQuestions().filter(q => q.type === 'text' || q.type === 'woorden');
+    
+    console.log('Available score questions:', scoreQuestions.map(q => q.id));
+    console.log('Available text questions:', textQuestions.map(q => q.id));
 
     // Calculate average scores
     const averageScores = scoreQuestions.map(question => {
       const scores = results
-        .filter(r => r.vraagId === question.id && r.score !== undefined)
+        .filter(r => r.vraagId === question.id && r.score !== undefined && !isNaN(r.score))
         .map(r => r.score!);
+      
+      console.log(`Question ${question.id} scores:`, scores);
       
       const average = scores.length > 0 
         ? scores.reduce((sum, score) => sum + score, 0) / scores.length 
         : 0;
       
-      return {
-        question: question.tekst.substring(0, 30) + '...',
+      const result = {
+        question: question.tekst.length > 40 ? question.tekst.substring(0, 37) + '...' : question.tekst,
         score: Math.round(average * 10) / 10,
         questionId: question.id
       };
+      
+      console.log(`Calculated average for ${question.id}:`, result);
+      return result;
     });
 
+    console.log('FINAL AVERAGE SCORES:', averageScores);
+
     // Process first impressions (from word responses)
-    const wordResponses = results.filter(r => r.woorden && r.woorden.length > 0);
+    const wordResponses = results.filter(r => r.woorden && Array.isArray(r.woorden) && r.woorden.length > 0);
+    console.log('Word responses found:', wordResponses.length);
+    
     const wordCounts: Record<string, number> = {};
     
     wordResponses.forEach(r => {
+      console.log('Processing word response:', r.woorden);
       r.woorden!.forEach(word => {
-        const cleanWord = word.toLowerCase().trim();
+        const cleanWord = word.toLowerCase().trim().replace(/[.,!?]/g, '');
         wordCounts[cleanWord] = (wordCounts[cleanWord] || 0) + 1;
       });
     });
+    
+    console.log('WORD COUNTS:', wordCounts);
 
     const firstImpressions = Object.entries(wordCounts)
       .map(([word, count]) => ({
@@ -302,9 +345,11 @@ export class ClaudeAnalysisService {
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
 
+    console.log('FIRST IMPRESSIONS:', firstImpressions);
+
     // Generate improvements based on low scores
     const lowScoreQuestions = averageScores
-      .filter(q => q.score < 6)
+      .filter(q => q.score > 0 && q.score < 6) // Only include actual scores
       .sort((a, b) => a.score - b.score)
       .slice(0, 3);
 
@@ -314,18 +359,24 @@ export class ClaudeAnalysisService {
       
       return {
         title: this.generateImprovementTitle(q.questionId),
-        description: commonIssues || `Score van ${q.score}/10 bij vraag over ${q.question.toLowerCase()}`,
-        impact: q.score < 4 ? "Hoog" : q.score < 6 ? "Gemiddeld" : "Laag",
+        description: commonIssues || `Score van ${q.score}/7 suggereert verbeteringen nodig`,
+        impact: q.score < 3 ? "Hoog" : q.score < 5 ? "Gemiddeld" : "Laag",
         priority: index + 1
       };
     });
 
+    const validScores = averageScores.filter(s => s.score > 0);
     const summary = {
       totalResponses: results.length,
-      averageScore: averageScores.reduce((sum, item) => sum + item.score, 0) / averageScores.length,
+      validResponses: results.filter(r => !((r as any).fallback) && (r.score || r.uitleg || r.woorden)).length,
+      fallbackResponses: results.filter(r => (r as any).fallback).length,
+      averageScore: validScores.length > 0 ? validScores.reduce((sum, item) => sum + item.score, 0) / validScores.length : 0,
       completionRate: (results.filter(r => r.score || r.uitleg || r.woorden).length / results.length) * 100,
       topWords: firstImpressions.slice(0, 3).map(fi => fi.word)
     };
+
+    console.log('FINAL SUMMARY:', summary);
+    console.log('=== PROCESSING RESULTS COMPLETE ===');
 
     return {
       averageScores,
@@ -358,6 +409,26 @@ export class ClaudeAnalysisService {
 
   private static generateImprovementTitle(questionId: string): string {
     const titles: Record<string, string> = {
+      // Nieuwe vraag IDs
+      'A1': 'Verbeter eerste indruk',
+      'A2': 'Maak doelgroep duidelijker', 
+      'A3': 'Verhoog relevantie',
+      'A4': 'Versterk geloofwaardigheid',
+      'A5': 'Vergroot emotionele impact',
+      'A6': 'Optimaliseer klikintentie',
+      'A7': 'Verbeter CTA duidelijkheid',
+      'B1': 'Verbeter 5-seconden test',
+      'B2': 'Versterk advertentie-aansluiting',
+      'B3': 'Verduidelijk waardepropositie',
+      'B4': 'Verstrek meer informatie',
+      'B5': 'Verhoog vertrouwen',
+      'B6': 'Reduceer formulier frictie',
+      'B7': 'Versterf CTA zichtbaarheid',
+      'B8': 'Optimaliseer mobiele ervaring',
+      'C1': 'Los belofte-gat op',
+      'C2': 'Vervul verwachtingen beter',
+      'C3': 'Implementeer top conversie-fix',
+      // Oude vraag IDs (backwards compatibility)
       'lp_1': 'Verbeter navigatie-ervaring',
       'lp_2': 'Optimaliseer visueel ontwerp',
       'lp_3': 'Verhoog content relevantie',
@@ -368,7 +439,7 @@ export class ClaudeAnalysisService {
       'adv_3': 'Vergroot click-through rate'
     };
 
-    return titles[questionId] || 'Algemene verbetering nodig';
+    return titles[questionId] || `Verbetering nodig (${questionId})`;
   }
 
   static exportResults(results: AnalysisResult[], format: 'json' | 'markdown' = 'json'): string {

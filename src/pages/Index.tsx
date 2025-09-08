@@ -90,31 +90,63 @@ const Index = () => {
   };
 
   const handleClaudeAnalysisComplete = (results: AnalysisResult[]) => {
+    console.log('=== HANDLE CLAUDE ANALYSIS COMPLETE ===');
+    console.log('RAW RESULTS RECEIVED:', results);
+    console.log('Results count:', results.length);
+    console.log('Results sample:', results.slice(0, 3));
+    
+    // Check for fallback responses
+    const fallbackCount = results.filter(r => (r as any).fallback).length;
+    const validCount = results.filter(r => !((r as any).fallback) && (r.score || r.uitleg || r.woorden)).length;
+    
+    console.log(`Fallback responses: ${fallbackCount}, Valid responses: ${validCount}`);
+    
     setClaudeResults(results);
     
     // Process results for the dashboard
+    console.log('=== PROCESSING RESULTS FOR DASHBOARD ===');
     const processed = ClaudeAnalysisService.processResults(results);
+    console.log('PROCESSED RESULTS:', processed);
     
     // Convert to the format expected by ResultsDashboard
     const dashboardResults = {
-      results: results.map(r => ({
-        persona: { naam: 'Claude Persona' }, // We'll need to map this properly
-        responses: { [r.vraagId]: r.score || r.uitleg || r.woorden?.join(', ') || '' },
-        timestamp: new Date().toISOString(),
-        websiteUrl: state.websiteUrl
-      })),
+      results: results.map((r, index) => {
+        // Find the corresponding persona
+        const persona = state.selectedPersonas.find(p => p.id === r.personaId) || 
+                        state.selectedPersonas[index % state.selectedPersonas.length];
+        
+        return {
+          persona: { naam: persona?.naam || `Persona ${index + 1}` },
+          responses: { [r.vraagId]: r.score || r.uitleg || r.woorden?.join(', ') || r.rawResponse || '' },
+          timestamp: new Date().toISOString(),
+          websiteUrl: state.websiteUrl,
+          fallback: (r as any).fallback
+        };
+      }),
       summary: processed.summary,
       totalResponses: results.length,
       completedAt: new Date().toISOString()
     };
     
+    console.log('DASHBOARD RESULTS:', dashboardResults);
+    
     actions.setResults(dashboardResults);
     setShowResults(true);
     
-    toast({
-      title: "Claude analyse voltooid",
-      description: `${results.length} authentieke persona responses gegenereerd`,
-    });
+    if (validCount > 0) {
+      toast({
+        title: "Claude analyse voltooid",
+        description: `${validCount} authentieke persona responses gegenereerd${fallbackCount > 0 ? ` (${fallbackCount} fallback)` : ''}`,
+      });
+    } else {
+      toast({
+        title: "Analyse voltooid met fallback data",
+        description: `Alle ${results.length} responses zijn fallback data. Check de logs voor details.`,
+        variant: "destructive"
+      });
+    }
+    
+    console.log('=== ANALYSIS COMPLETE HANDLER FINISHED ===');
   };
 
   const canStartAnalysis = state.selectedPersonas.length > 0 && 
@@ -187,7 +219,7 @@ const Index = () => {
             <ResultsDashboard 
               processedResults={ClaudeAnalysisService.processResults(claudeResults)}
               totalPersonas={state.selectedPersonas.length}
-              totalResults={claudeResults.length}
+              totalResults={claudeResults.filter(r => !((r as any).fallback)).length}
             />
           )}
         </div>
