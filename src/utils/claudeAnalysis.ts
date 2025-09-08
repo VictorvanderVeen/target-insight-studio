@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getAllQuestions } from "@/data/questions";
+import { getAllQuestions, getQuestionsByAnalysisType } from "@/data/questions";
 
 export interface AnalysisResult {
   personaId: string;
@@ -56,10 +56,11 @@ export class ClaudeAnalysisService {
     websiteUrl: string,
     onProgress: (progress: AnalysisProgress) => void,
     onError: (error: string) => void,
-    demoMode: boolean = false
+    demoMode: boolean = false,
+    analysisType: 'advertentie' | 'landingspagina' | 'complete' = 'complete'
   ): Promise<AnalysisResult[]> {
     
-    const questions = getAllQuestions();
+    const questions = analysisType ? getQuestionsByAnalysisType(analysisType) : getAllQuestions();
     const totalBatches = Math.ceil(personas.length / this.BATCH_SIZE);
     
     let progress: AnalysisProgress = {

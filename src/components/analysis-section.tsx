@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Clock, Users, Brain, Zap, Globe, Image, AlertTriangle, TestTube, CheckCircle2, X, Download, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ClaudeAnalysisService, AnalysisProgress, AnalysisResult } from "@/utils/claudeAnalysis";
-import { getTotalQuestionCount } from "@/data/questions";
+import { getTotalQuestionCount, getQuestionsByAnalysisType } from "@/data/questions";
 
 interface AnalysisSectionProps {
   selectedPersonas: any[];
@@ -41,6 +42,7 @@ export function AnalysisSection({
   const [analysisError, setAnalysisError] = useState<string>("");
   const [isClaudeAnalyzing, setIsClaudeAnalyzing] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [analysisType, setAnalysisType] = useState<'advertentie' | 'landingspagina' | 'complete'>('advertentie');
 
   useEffect(() => {
     // Check for saved progress on component mount
@@ -73,7 +75,8 @@ export function AnalysisSection({
         (error) => {
           setAnalysisError(error);
         },
-        useDemoMode
+        useDemoMode,
+        analysisType
       );
       
       setClaudeResults(results);
@@ -127,10 +130,10 @@ export function AnalysisSection({
   };
 
   const getEstimatedCost = () => {
-    const totalQuestions = getTotalQuestionCount();
+    const totalQuestions = getTotalQuestionCount(analysisType);
     const tokensPerPersona = 200 * totalQuestions; // ~200 tokens per question
     const totalTokens = selectedPersonas.length * tokensPerPersona;
-    const cost = (totalTokens / 1000) * 0.003; // Claude 3.5 Sonnet pricing
+    const cost = (totalTokens / 1000) * 0.003; // Claude 3.5 Haiku pricing
     return { tokens: totalTokens, cost };
   };
 
@@ -250,7 +253,7 @@ export function AnalysisSection({
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
             <Brain className="w-6 h-6 text-accent mx-auto mb-2" />
-            <div className="text-2xl font-bold text-foreground">{getTotalQuestionCount()}</div>
+            <div className="text-2xl font-bold text-foreground">{getTotalQuestionCount(analysisType)}</div>
             <p className="text-xs text-muted-foreground">Vragen</p>
           </div>
           <div className="text-center p-4 bg-gradient-subtle rounded-lg border border-border/50">
@@ -273,6 +276,34 @@ export function AnalysisSection({
 
         {!isAnalyzing && !isClaudeAnalyzing && progress === 0 && (
           <div className="space-y-4">
+            {/* Analysetype dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Analysetype
+              </label>
+              <Select value={analysisType} onValueChange={(value) => setAnalysisType(value as 'advertentie' | 'landingspagina' | 'complete')}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Kies analysetype" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="advertentie">
+                    Advertentie analyse (7 vragen)
+                  </SelectItem>
+                  <SelectItem value="landingspagina">
+                    Landingspagina analyse (8 vragen)
+                  </SelectItem>
+                  <SelectItem value="complete">
+                    Complete analyse (18 vragen)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {analysisType === 'advertentie' && 'Focus op eerste indruk, relevantie en klikintentie'}
+                {analysisType === 'landingspagina' && 'Focus op waardepropositie, vertrouwen en conversie'}
+                {analysisType === 'complete' && 'Volledige analyse van advertentie naar conversie'}
+              </p>
+            </div>
+
             <div className="flex gap-3">
               <Button 
                 onClick={() => startClaudeAnalysis(false)}
@@ -294,7 +325,7 @@ export function AnalysisSection({
             </div>
             
             <p className="text-sm text-muted-foreground text-center">
-              Claude analyse gebruikt echte AI voor authentieke persona responses. Test Mode gebruikt mock data.
+              Claude analyse gebruikt echte AI voor authentieke persona responses. Demo Mode gebruikt mock data.
             </p>
           </div>
         )}
