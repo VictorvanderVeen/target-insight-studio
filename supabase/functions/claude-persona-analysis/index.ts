@@ -62,16 +62,15 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   try {
-    console.log(`=== CHECKING API KEY (v3) ===`);
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('CLAUDE_API_KEY');
+    console.log(`=== CHECKING API KEY (v4) ===`);
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     console.log('API Key status:', {
       exists: !!anthropicApiKey,
       length: anthropicApiKey?.length || 0,
       startsCorrect: anthropicApiKey?.startsWith('sk-ant-') || false,
       firstChars: anthropicApiKey?.substring(0, 10) || 'none',
       anthropicExists: !!Deno.env.get('ANTHROPIC_API_KEY'),
-      claudeExists: !!Deno.env.get('CLAUDE_API_KEY'),
-      envKeys: Object.keys(Deno.env.toObject()).filter(k => k.toLowerCase().includes('api') || k.includes('ANTHROPIC') || k.includes('CLAUDE'))
+      allEnvKeys: Object.keys(Deno.env.toObject()).sort()
     });
     
     console.log(`=== PARSING REQUEST BODY ===`);
@@ -134,13 +133,18 @@ async function handleRequest(req: Request): Promise<Response> {
     // VALIDATION FOR PRODUCTION MODE
     console.log(`=== VALIDATING PRODUCTION MODE ===`);
     
-    if (!anthropicApiKey || anthropicApiKey.trim() === '') {
-      console.error('API key validation failed - empty or missing');
+    if (!anthropicApiKey || anthropicApiKey.trim() === '' || !anthropicApiKey.startsWith('sk-ant-')) {
+      console.error('API key validation failed:', {
+        exists: !!anthropicApiKey,
+        isEmpty: !anthropicApiKey || anthropicApiKey.trim() === '',
+        hasCorrectFormat: anthropicApiKey?.startsWith('sk-ant-') || false,
+        actualPrefix: anthropicApiKey?.substring(0, 7) || 'none'
+      });
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'ANTHROPIC_API_KEY is not configured. Please set your Claude API key in Supabase secrets.',
+        error: 'ANTHROPIC_API_KEY is not configured correctly. Please set a valid Claude API key starting with sk-ant- in Supabase secrets.',
         fallback: true,
-        code: 'MISSING_API_KEY'
+        code: 'INVALID_API_KEY'
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
