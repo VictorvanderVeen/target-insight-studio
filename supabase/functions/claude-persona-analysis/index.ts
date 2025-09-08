@@ -417,8 +417,12 @@ function generateCacheKey(personas: any[], questions: any[], websiteUrl: string)
 }
 
 // BATCH PROCESSING - Send all questions for one persona in single request
-async function batchAnalyzePersona(persona: any, questions: any[], websiteUrl: string, apiKey: string): Promise<AnalysisResponse[]> {
+async function batchAnalyzePersona(persona: any, questions: any[], websiteUrl: string, apiKey: string, imageData?: string): Promise<AnalysisResponse[]> {
   console.log(`Batch processing ${questions.length} questions for ${persona.naam}`);
+  console.log(`Image data available: ${!!imageData}`);
+  if (imageData) {
+    console.log(`Image data length: ${imageData.length} characters`);
+  }
   
   // Create a batch prompt that includes all questions
   const batchPrompt = `Je bent ${persona.naam}, ${persona.leeftijd} jaar oud.
@@ -430,7 +434,7 @@ BELANGRIJKE INSTRUCTIES:
 - Gebruik EXACT dit formaat voor elke vraag
 - Geef korte, directe antwoorden
 
-Bekijk: ${websiteUrl}
+Bekijk ${imageData ? 'deze screenshot' : `deze ${websiteUrl.includes('http') ? 'website' : 'advertentie'}: ${websiteUrl}`}
 
 BEANTWOORD DEZE VRAGEN (gebruik exact het ID: formaat):
 
@@ -464,7 +468,20 @@ GEEF NU JE ANTWOORDEN (start elke regel met het vraag ID):`;
         max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: batchPrompt
+          content: imageData ? [
+            {
+              type: 'text',
+              text: batchPrompt
+            },
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: imageData
+              }
+            }
+          ] : batchPrompt
         }]
       })
     });
