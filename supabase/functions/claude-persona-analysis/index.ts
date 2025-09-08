@@ -46,7 +46,7 @@ serve(async (req) => {
 });
 
 async function handleRequest(req: Request): Promise<Response> {
-  console.log(`=== CLAUDE ANALYSIS REQUEST START (v2) ===`);
+  console.log(`=== CLAUDE ANALYSIS REQUEST START (v3) ===`);
   console.log(`Method: ${req.method}`);
   console.log(`URL: ${req.url}`);
   console.log(`Timestamp: ${new Date().toISOString()}`);
