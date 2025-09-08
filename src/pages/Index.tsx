@@ -220,6 +220,7 @@ const Index = () => {
               processedResults={ClaudeAnalysisService.processResults(claudeResults)}
               totalPersonas={state.selectedPersonas.length}
               totalResults={claudeResults.filter(r => !((r as any).fallback)).length}
+              rawResults={claudeResults}
             />
           )}
         </div>

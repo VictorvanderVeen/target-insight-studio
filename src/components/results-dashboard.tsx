@@ -14,46 +14,36 @@ interface ResultsDashboardProps {
   };
   totalPersonas?: number;
   totalResults?: number;
+  rawResults?: any[]; // Add raw results for debugging
 }
 
-export function ResultsDashboard({ processedResults, totalPersonas = 15, totalResults = 0 }: ResultsDashboardProps) {
+export function ResultsDashboard({ processedResults, totalPersonas = 15, totalResults = 0, rawResults }: ResultsDashboardProps) {
+  console.log('=== RESULTS DASHBOARD RENDER ===');
+  console.log('processedResults received:', processedResults);
+  console.log('totalPersonas:', totalPersonas);
+  console.log('totalResults:', totalResults);
+  
   // Use processed results if available, otherwise fallback to mock data
-  const averageScores = processedResults?.averageScores || [
-    { question: 'Navigatie', score: 7.2, questionId: 'nav_1' },
-    { question: 'Design', score: 8.1, questionId: 'design_1' },
-    { question: 'Content', score: 6.8, questionId: 'content_1' },
-    { question: 'Snelheid', score: 5.9, questionId: 'speed_1' },
-    { question: 'Mobiel', score: 7.5, questionId: 'mobile_1' }
+  const averageScores = processedResults?.averageScores?.length ? processedResults.averageScores : [
+    { question: 'Geen data beschikbaar', score: 0, questionId: 'no_data' }
   ];
 
-  const firstImpressions = processedResults?.firstImpressions || [
-    { word: 'Professioneel', count: 12, color: '#6366f1' },
-    { word: 'Modern', count: 8, color: '#8b5cf6' },
-    { word: 'Verwarrend', count: 6, color: '#ef4444' },
-    { word: 'Intuïtief', count: 10, color: '#10b981' },
-    { word: 'Langzaam', count: 4, color: '#f59e0b' }
+  const firstImpressions = processedResults?.firstImpressions?.length ? processedResults.firstImpressions : [
+    { word: 'Geen woorden', count: 0, color: '#6366f1' }
   ];
 
-  const improvements = processedResults?.improvements || [
+  const improvements = processedResults?.improvements?.length ? processedResults.improvements : [
     {
-      title: "Verbeter laadtijden",
-      description: "73% van de personas vond de website te langzaam laden",
-      impact: "Hoog",
+      title: "Geen verbeterpunten beschikbaar",
+      description: "Er zijn nog geen resultaten om te analyseren",
+      impact: "Onbekend",
       priority: 1
-    },
-    {
-      title: "Vereenvoudig navigatie",
-      description: "Meerdere personas hadden moeite met het vinden van informatie",
-      impact: "Gemiddeld",
-      priority: 2
-    },
-    {
-      title: "Optimaliseer mobiele ervaring",
-      description: "Content is moeilijk leesbaar op kleinere schermen",
-      impact: "Hoog",
-      priority: 3
     }
   ];
+
+  console.log('Final averageScores for display:', averageScores);
+  console.log('Final firstImpressions for display:', firstImpressions);
+  console.log('Final improvements for display:', improvements);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-success';
@@ -103,10 +93,10 @@ export function ResultsDashboard({ processedResults, totalPersonas = 15, totalRe
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-foreground">{item.question}</span>
                     <Badge variant={getScoreVariant(item.score)} className="font-mono">
-                      {item.score}/10
+                      {item.score}/7
                     </Badge>
                   </div>
-                  <Progress value={item.score * 10} className="h-2" />
+                  <Progress value={(item.score / 7) * 100} className="h-2" />
                 </div>
               ))}
             </div>
@@ -160,7 +150,7 @@ export function ResultsDashboard({ processedResults, totalPersonas = 15, totalRe
               <YAxis 
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
-                domain={[0, 10]}
+                domain={[0, 7]}
               />
               <Tooltip 
                 contentStyle={{
@@ -178,6 +168,65 @@ export function ResultsDashboard({ processedResults, totalPersonas = 15, totalRe
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* RAW RESULTS DEBUG SECTION */}
+      {rawResults && rawResults.length > 0 && (
+        <Card className="shadow-card border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              Ruwe Resultaten (Debug)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {rawResults.map((result, index) => (
+                <div key={`${result.personaId}-${result.vraagId}`} className="p-3 border rounded-lg bg-muted/20">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold">Vraag {result.vraagId}</h4>
+                    <Badge variant={result.fallback ? "destructive" : "default"}>
+                      {result.fallback ? "Fallback" : "Valid"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">Persona: {result.personaId}</p>
+                  
+                  {result.score && (
+                    <div className="mb-2">
+                      <strong className="text-primary">Score: {result.score}/7</strong>
+                      {result.uitleg && <p className="text-sm mt-1">{result.uitleg}</p>}
+                    </div>
+                  )}
+                  
+                  {result.woorden && result.woorden.length > 0 && (
+                    <div className="mb-2">
+                      <strong>Woorden:</strong> 
+                      <span className="ml-2">{result.woorden.join(', ')}</span>
+                    </div>
+                  )}
+                  
+                  {result.uitleg && !result.score && (
+                    <div className="mb-2">
+                      <strong>Tekst:</strong>
+                      <p className="text-sm mt-1">{result.uitleg}</p>
+                    </div>
+                  )}
+                  
+                  {result.rawResponse && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-muted-foreground cursor-pointer">
+                        Raw Response
+                      </summary>
+                      <pre className="text-xs bg-muted p-2 rounded mt-1 whitespace-pre-wrap">
+                        {result.rawResponse}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top 3 Improvements */}
       <Card className="shadow-card border-border/50">
