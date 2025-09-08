@@ -12,6 +12,7 @@ interface PersonaAnalysisRequest {
   websiteUrl: string;
   batchSize?: number;
   demoMode?: boolean;
+  imageData?: string;
 }
 
 interface AnalysisResponse {
@@ -95,7 +96,7 @@ async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const { personas, questions, websiteUrl, demoMode = false, batchSize = 1 } = requestBody; // BACK TO NORMAL
+    const { personas, questions, websiteUrl, demoMode = false, batchSize = 1, imageData } = requestBody; // Add imageData
     
     console.log(`=== REQUEST DETAILS ===`);
     console.log('Demo mode:', demoMode);
@@ -190,7 +191,7 @@ async function handleRequest(req: Request): Promise<Response> {
       console.log(`=== PROCESSING PERSONA ${i + 1}: ${persona.naam} ===`);
       
       try {
-        const personaResults = await batchAnalyzePersona(persona, questions.slice(0, 3), websiteUrl, anthropicApiKey);
+        const personaResults = await batchAnalyzePersona(persona, questions.slice(0, 3), websiteUrl, anthropicApiKey, imageData);
         results.push(...personaResults);
         console.log(`Successfully processed ${persona.naam} - ${personaResults.length} responses`);
         

@@ -57,7 +57,8 @@ export class ClaudeAnalysisService {
     onProgress: (progress: AnalysisProgress) => void,
     onError: (error: string) => void,
     demoMode: boolean = false,
-    analysisType: 'advertentie' | 'landingspagina' | 'complete' = 'complete'
+    analysisType: 'advertentie' | 'landingspagina' | 'complete' = 'complete',
+    imageData?: string | null
   ): Promise<AnalysisResult[]> {
     
     const questions = analysisType ? getQuestionsByAnalysisType(analysisType) : getAllQuestions();
@@ -106,7 +107,8 @@ export class ClaudeAnalysisService {
         questions,
         websiteUrl,
         demoMode,
-        batchSize: this.BATCH_SIZE
+        batchSize: this.BATCH_SIZE,
+        imageData // Add image data to request
       };
       
       console.log('=== FRONTEND: Calling supabase.functions.invoke ===');

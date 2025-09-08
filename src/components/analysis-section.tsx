@@ -64,7 +64,17 @@ export function AnalysisSection({
     setShowResults(false);
     
     try {
+      // Convert screenshot to base64 if available
+      let imageData = null;
+      if (screenshot) {
+        console.log('Converting screenshot to base64...');
+        imageData = await convertFileToBase64(screenshot);
+        console.log('Screenshot converted successfully');
+      }
+      
       const url = websiteUrl || `Screenshot: ${screenshot?.name}`;
+      
+      console.log(`Calling ClaudeAnalysisService.startAnalysis with demoMode: ${useDemoMode}`);
       
       const results = await ClaudeAnalysisService.startAnalysis(
         selectedPersonas,
@@ -81,7 +91,8 @@ export function AnalysisSection({
           setAnalysisError(error);
         },
         useDemoMode, // EXPLICIET dooregeven - GEEN AUTO DEMO MODE
-        analysisType
+        analysisType,
+        imageData // Pass image data to Claude
       );
       
       console.log(`Analysis completed. Results count: ${results.length}`);
@@ -97,6 +108,21 @@ export function AnalysisSection({
       setIsClaudeAnalyzing(false);
       setCurrentPersona("");
     }
+  };
+
+  // Helper function to convert file to base64
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64String = reader.result as string;
+        // Remove the data:image/...;base64, prefix to get just the base64 data
+        const base64Data = base64String.split(',')[1];
+        resolve(base64Data);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   const startDemoMode = async () => {
